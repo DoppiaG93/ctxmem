@@ -1,0 +1,51 @@
+version: '3'
+
+# Manage the Ollama Lima VM that powers ctxmem's semantic backend.
+#   task start        create/start the VM (installs Ollama + pulls the model)
+#   task status       check the local Ollama endpoint
+#   task pull MODEL=  pull another model inside the VM
+#   task stop         stop the VM
+#   task delete       stop and remove the VM
+#   task demo         switch ctxmem to semantic and run a sample query
+
+tasks:
+  start:
+    desc: Create/start the Ollama VM (idempotent).
+    cmds:
+      - limactl start --name=ollama ./lima.yaml
+
+  run:
+    desc: Start an already-created VM.
+    cmds:
+      - limactl start ollama
+
+  stop:
+    cmds:
+      - limactl stop ollama -f
+
+  delete:
+    cmds:
+      - limactl stop ollama -f
+      - limactl delete ollama
+
+  status:
+    desc: Show models available on the local Ollama endpoint.
+    cmds:
+      - curl -fsS http://localhost:11434/api/tags
+
+  pull:
+    desc: 'Pull a model inside the VM (default: nomic-embed-text).'
+    cmds:
+      - limactl shell ollama ollama pull {{.MODEL | default "nomic-embed-text"}}
+
+  logs:
+    cmds:
+      - limactl shell ollama -- journalctl -u ollama --no-pager -n 100
+
+  demo:
+    desc: Point ctxmem at the VM and run a real semantic query.
+    dir: ..
+    cmds:
+      - ctxmem mode semantic
+      - ctxmem sync
+      - ctxmem recall "how do we handle authentication"

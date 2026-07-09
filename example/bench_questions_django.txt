@@ -1,0 +1,16 @@
+# Benchmark questions for a Django codebase (one query per line, '#' = comment).
+how does the QuerySet class build and execute SQL
+how does URL routing and the resolver match a request
+how are model fields defined and validated
+how does form validation and the clean method work
+how does middleware process request and response
+how does the template engine render and load templates
+how is the User model and authentication implemented
+how do database migrations apply operations
+how does the cache framework backend work
+how does the signal dispatcher connect and send
+how is the ORM manager attached to a model
+how does the admin site register models
+how does session middleware store data
+how does the WSGI handler build a response
+how does model form save create instances

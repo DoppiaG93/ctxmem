@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# The derived search index is NOT committed: it is rebuilt from memory.jsonl.
+.ctxmem/index.db

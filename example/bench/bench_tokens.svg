@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="772" viewBox="0 0 940 772" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="940" height="772" fill="#ffffff"/>
+<text x="24" y="34" font-size="21" font-weight="700" fill="#222222">Context tokens per question</text>
+<text x="24" y="56" font-size="13" fill="#666666">baseline: whole relevant source files (tests excluded) · tiktoken/cl100k_base</text>
+<rect x="600" y="20" width="13" height="13" fill="#e8663c"/>
+<text x="619" y="31" font-size="12" fill="#222222">without ctxmem</text>
+<rect x="600" y="40" width="13" height="13" fill="#1f9e8f"/>
+<text x="619" y="51" font-size="12" fill="#222222">with ctxmem</text>
+<text x="288" y="89" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how does the QuerySet class build and exe…</text>
+<rect x="300" y="74" width="135.9" height="15" rx="2" fill="#e8663c"/>
+<text x="441.9" y="87" font-size="12" fill="#555">67.3k</text>
+<rect x="300" y="93" width="2.8" height="15" rx="2" fill="#1f9e8f"/>
+<text x="308.8" y="106" font-size="12" fill="#555">1.4k</text>
+<text x="288" y="135" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how does URL routing and the resolver mat…</text>
+<rect x="300" y="120" width="61.3" height="15" rx="2" fill="#e8663c"/>
+<text x="367.3" y="133" font-size="12" fill="#555">30.3k</text>
+<rect x="300" y="139" width="1.4" height="15" rx="2" fill="#1f9e8f"/>
+<text x="307.4" y="152" font-size="12" fill="#555">700</text>
+<text x="288" y="181" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how are model fields defined and validated</text>
+<rect x="300" y="166" width="50.8" height="15" rx="2" fill="#e8663c"/>
+<text x="356.8" y="179" font-size="12" fill="#555">25.2k</text>
+<rect x="300" y="185" width="2.6" height="15" rx="2" fill="#1f9e8f"/>
+<text x="308.6" y="198" font-size="12" fill="#555">1.3k</text>
+<text x="288" y="227" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how does form validation and the clean me…</text>
+<rect x="300" y="212" width="15.4" height="15" rx="2" fill="#e8663c"/>
+<text x="321.4" y="225" font-size="12" fill="#555">7.6k</text>
+<rect x="300" y="231" width="2.8" height="15" rx="2" fill="#1f9e8f"/>
+<text x="308.8" y="244" font-size="12" fill="#555">1.4k</text>
+<text x="288" y="273" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how does middleware process request and r…</text>
+<rect x="300" y="258" width="3.7" height="15" rx="2" fill="#e8663c"/>
+<text x="309.7" y="271" font-size="12" fill="#555">1.8k</text>
+<rect x="300" y="277" width="1.8" height="15" rx="2" fill="#1f9e8f"/>
+<text x="307.8" y="290" font-size="12" fill="#555">871</text>
+<text x="288" y="319" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how is the User model and authentication …</text>
+<rect x="300" y="304" width="70.1" height="15" rx="2" fill="#e8663c"/>
+<text x="376.1" y="317" font-size="12" fill="#555">34.7k</text>
+<rect x="300" y="323" width="2.3" height="15" rx="2" fill="#1f9e8f"/>
+<text x="308.3" y="336" font-size="12" fill="#555">1.1k</text>
+<text x="288" y="365" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how do database migrations apply operatio…</text>
+<rect x="300" y="350" width="3.3" height="15" rx="2" fill="#e8663c"/>
+<text x="309.3" y="363" font-size="12" fill="#555">1.6k</text>
+<rect x="300" y="369" width="2.1" height="15" rx="2" fill="#1f9e8f"/>
+<text x="308.1" y="382" font-size="12" fill="#555">1.0k</text>
+<text x="288" y="411" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how does the signal dispatcher connect an…</text>
+<rect x="300" y="396" width="7.7" height="15" rx="2" fill="#e8663c"/>
+<text x="313.7" y="409" font-size="12" fill="#555">3.8k</text>
+<rect x="300" y="415" width="1.5" height="15" rx="2" fill="#1f9e8f"/>
+<text x="307.5" y="428" font-size="12" fill="#555">749</text>
+<text x="288" y="457" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how is the ORM manager attached to a model</text>
+<rect x="300" y="442" width="112.8" height="15" rx="2" fill="#e8663c"/>
+<text x="418.8" y="455" font-size="12" fill="#555">55.9k</text>
+<rect x="300" y="461" width="2.0" height="15" rx="2" fill="#1f9e8f"/>
+<text x="308.0" y="474" font-size="12" fill="#555">974</text>
+<text x="288" y="503" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how does the admin site register models</text>
+<rect x="300" y="488" width="1.5" height="15" rx="2" fill="#e8663c"/>
+<text x="307.5" y="501" font-size="12" fill="#555">736</text>
+<rect x="300" y="507" width="2.6" height="15" rx="2" fill="#1f9e8f"/>
+<text x="308.6" y="520" font-size="12" fill="#555">1.3k</text>
+<text x="288" y="549" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how does session middleware store data</text>
+<rect x="300" y="534" width="5.4" height="15" rx="2" fill="#e8663c"/>
+<text x="311.4" y="547" font-size="12" fill="#555">2.7k</text>
+<rect x="300" y="553" width="1.3" height="15" rx="2" fill="#1f9e8f"/>
+<text x="307.3" y="566" font-size="12" fill="#555">668</text>
+<text x="288" y="595" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how does the WSGI handler build a response</text>
+<rect x="300" y="580" width="11.8" height="15" rx="2" fill="#e8663c"/>
+<text x="317.8" y="593" font-size="12" fill="#555">5.8k</text>
+<rect x="300" y="599" width="2.6" height="15" rx="2" fill="#1f9e8f"/>
+<text x="308.6" y="612" font-size="12" fill="#555">1.3k</text>
+<text x="288" y="641" font-size="13" font-weight="400" fill="#222222" text-anchor="end">how does model form save create instances</text>
+<rect x="300" y="626" width="70.4" height="15" rx="2" fill="#e8663c"/>
+<text x="376.4" y="639" font-size="12" fill="#555">34.9k</text>
+<rect x="300" y="645" width="2.5" height="15" rx="2" fill="#1f9e8f"/>
+<text x="308.5" y="658" font-size="12" fill="#555">1.3k</text>
+<line x1="24" y1="664" x2="916" y2="664" stroke="#dddddd"/>
+<text x="288" y="687" font-size="13" font-weight="700" fill="#222222" text-anchor="end">TOTAL</text>
+<rect x="300" y="672" width="550.0" height="15" rx="2" fill="#e8663c"/>
+<text x="856.0" y="685" font-size="12" fill="#555">272.4k</text>
+<rect x="300" y="691" width="28.3" height="15" rx="2" fill="#1f9e8f"/>
+<text x="334.3" y="704" font-size="12" fill="#555">14.0k</text>
+<text x="24" y="754" font-size="11" fill="#999">Generated by `ctxmem bench` — lower is better.</text>
+</svg>
