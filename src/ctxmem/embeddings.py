@@ -11,6 +11,7 @@ callers fall back to keyword (FTS5) search.
 """
 
 import json
+import importlib.util
 import urllib.error
 import urllib.request
 
@@ -19,11 +20,7 @@ DEFAULT_URL = "http://localhost:11434"
 
 
 def sqlite_vec_available():
-    try:
-        import sqlite_vec  # noqa: F401
-        return True
-    except Exception:
-        return False
+    return importlib.util.find_spec("sqlite_vec") is not None
 
 
 def ollama_available(cfg):

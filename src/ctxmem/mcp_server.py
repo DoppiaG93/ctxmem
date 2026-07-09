@@ -18,10 +18,10 @@ from . import gitinfo, retrieval, store
 
 try:
     from mcp.server.fastmcp import FastMCP
-except ImportError:  # pragma: no cover
+except ImportError as exc:  # pragma: no cover
     raise SystemExit(
         "The MCP extra is not installed. Run: pip install \"ctxmem[mcp]\""
-    )
+    ) from exc
 
 ROOT = os.environ.get("CTXMEM_ROOT", ".")
 mcp = FastMCP("ctxmem")
@@ -57,6 +57,7 @@ def remember(content: str, type: str = "note", title: str = "", tags: str = "") 
     base, jsonl_path, db_path = store.memory_paths(root)
     if not os.path.isdir(base):
         return "No memory initialized. Run 'ctxmem init' in the repo first."
+    db_exists = os.path.exists(db_path)
     rec = {
         "id": store.new_id(),
         "ts": store.now_iso(),
@@ -70,9 +71,10 @@ def remember(content: str, type: str = "note", title: str = "", tags: str = "") 
     }
     store.append_jsonl(jsonl_path, rec)
     conn = retrieval.get_conn(root)
-    rec["source"] = "memory"
-    store.insert_row(conn, rec)
-    conn.commit()
+    if db_exists:
+        rec["source"] = "memory"
+        store.insert_row(conn, rec)
+        conn.commit()
     return "Remembered [{}] {} on branch {}.".format(
         type, title or content[:40], rec["branch"])
 
