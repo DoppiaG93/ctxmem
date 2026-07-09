@@ -30,8 +30,7 @@ python -m pylint src/ctxmem tests
 ctxmem --help
 ```
 
-The same test and lint checks also run in GitHub Actions on every push and pull
-request.
+The same test and lint checks run in GitHub Actions for pull requests only.
 
 ---
 
