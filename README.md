@@ -63,7 +63,8 @@ demand, so nothing is forgotten when a chat exceeds the model's context window.
     - [Option A — install Ollama on the host](#option-a--install-ollama-on-the-host)
     - [Option B — run Ollama in an isolated Lima VM](#option-b--run-ollama-in-an-isolated-lima-vm)
   - [❓ 15. FAQ](#-15-faq)
-  - [📄 16. License](#-16-license)
+  - [🤝 16. Contributing](#-16-contributing)
+  - [📄 17. License](#-17-license)
 
 ---
 
@@ -670,6 +671,13 @@ incremental (diff-based) indexing is a natural next step.
 underlying LLM behind your agent may be proprietary, but the memory and the
 protocol here are fully open and self-hosted.
 
-## 📄 16. License
+## 🤝 16. Contributing
+
+Contributions are welcome! This project follows the **Git Flow** branching model
+(`feature/*`, `bugfix/*`, `hotfix/*` → `develop` → `main`). Before opening a pull
+request, please read the **[Contributing guide](CONTRIBUTING.md)** — it covers
+branch naming, commit conventions, labels, milestones, and the release process.
+
+## 📄 17. License
 
 Released under the [MIT License](LICENSE).
