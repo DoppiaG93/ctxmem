@@ -42,6 +42,7 @@ demand, so nothing is forgotten when a chat exceeds the model's context window.
   - [🗂️ 4. Project structure](#️-4-project-structure)
     - [The modules in plain words](#the-modules-in-plain-words)
   - [📥 5. Install](#-5-install)
+    - [Development checks](#development-checks)
   - [🚀 6. Quick start (5 minutes)](#-6-quick-start-5-minutes)
   - [🧭 7. Full walkthrough (install, agent, colleague)](#-7-full-walkthrough-install-agent-colleague)
     - [Step 1 — Add ctxmem to your codebase (once)](#step-1--add-ctxmem-to-your-codebase-once)
@@ -205,6 +206,24 @@ pip install "ctxmem[all]"        # everything
 
 Requires **Python 3.8+** with FTS5 (bundled in virtually every `sqlite3` build).
 The base install has **zero third-party dependencies**.
+
+### Development checks
+
+For local development, install the dev extra and run the same checks used by
+GitHub Actions:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m pytest
+python -m pylint src/ctxmem tests
+ctxmem --help
+```
+
+`python -m pytest` runs the automated test suite. `python -m pylint src/ctxmem
+tests` verifies the lint workflow locally. On GitHub, the workflows in
+`.github/workflows/test.yml` and `.github/workflows/lint.yml` run automatically
+on every push and pull request.
 
 ## 🚀 6. Quick start (5 minutes)
 

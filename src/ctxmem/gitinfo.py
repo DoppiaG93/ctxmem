@@ -5,7 +5,7 @@ import subprocess
 
 def _run(args):
     try:
-        result = subprocess.run(args, capture_output=True, text=True, timeout=5)
+        result = subprocess.run(args, capture_output=True, text=True, timeout=5, check=False)
         return result.stdout.strip()
     except Exception:
         return ""
