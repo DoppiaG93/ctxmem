@@ -1,5 +1,5 @@
 """
-MCP server exposing ctxmem to AI agents (e.g. GitHub Copilot).
+MCP server exposing ctxmem to AI agents (e.g. GitHub Copilot or Codex).
 
 Tools:
   recall(query, limit, type, mode)            -> search project memory + code

@@ -5,6 +5,10 @@ build/
 dist/
 .venv/
 venv/
+.github/
 
-# The derived search index is NOT committed: it is rebuilt from memory.jsonl.
-.ctxmem/index.db
+# Local maintainer state for this package repo.
+# Downstream repos should commit .ctxmem/memory.jsonl + .ctxmem/config.json
+# and ignore only .ctxmem/index.db.
+.ctxmem/
+AGENTS.md

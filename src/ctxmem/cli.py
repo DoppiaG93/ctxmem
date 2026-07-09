@@ -9,7 +9,7 @@ ctxmem command line.
     ctxmem log                                      recent memories
     ctxmem status                                  what is indexed
     ctxmem hook install|uninstall                  git post-commit auto-sync
-    ctxmem agent-init [--mcp]                       wire up Copilot/agents
+    ctxmem agent-init [--agent ...] [--mcp]         wire up Copilot/Codex/agents
     ctxmem bench "query"                            token usage: with vs without ctxmem
 
 Shareability: commit .ctxmem/memory.jsonl and .ctxmem/config.json. A colleague
@@ -203,34 +203,24 @@ def cmd_hook(args):
 AGENT_MARK_BEGIN = "<!-- ctxmem:begin (managed by `ctxmem agent-init`) -->"
 AGENT_MARK_END = "<!-- ctxmem:end -->"
 
-AGENT_PROTOCOL = """## \u26a0\ufe0f MANDATORY: Project Memory Protocol (ctxmem)
+AGENT_PROTOCOL = """This repo has a `ctxmem` memory. Before starting a task, run the
+`ctxmem recall` command in the terminal to load relevant decisions and code:
 
-This repo has a persistent memory managed by the `ctxmem` CLI (on PATH; run from
-the repo root). Following this protocol is NOT optional \u2014 treat it as a hard rule
-that applies to EVERY task, on the same level as writing tests.
-
-**START of every task \u2014 you MUST run first:**
+```bash
+ctxmem recall "<short description of the task or question>"
 ```
-ctxmem --root . recall "<what the user asked>"
+
+When you make or confirm an important decision, run `ctxmem remember` so it is
+saved for future sessions and teammates:
+
+```bash
+ctxmem remember --type decision --title "Short title" "Detailed decision text"
 ```
-Use the results as context. Add `--type decision` / `--type note` to focus on
-human knowledge instead of code symbols.
 
-**DURING the task \u2014 you MUST save, without waiting to be asked, whenever ANY of
-these triggers happen:**
-- You explained a class, module, domain model, or non-trivial flow \u2192
-  `ctxmem --root . remember "<concise summary>" --type note --title "<short>" --path "<main file>"`
-- You made or confirmed a decision (architecture, convention, gotcha) \u2192
-  `ctxmem --root . remember "<the decision>" --type decision --title "<short>"`
-- You changed code \u2192 `ctxmem --root . sync`
+After changing code, run `ctxmem sync` to rebuild the index.
 
-**END of every turn \u2014 self-check before you finish replying:**
-> "Did I explain something or make a decision this turn? If yes and I did not
-> already call `ctxmem remember`, I MUST call it now before ending my reply."
-
-Rules: keep summaries short (2\u20134 sentences); one `remember` per distinct fact;
-never ask permission to save \u2014 just run the command. Memory lives in
-`.ctxmem/memory.jsonl` (commit it to share with the team)."""
+If your agent supports the MCP protocol instead of running shell commands, it can
+call the MCP tools `recall(...)` and `remember(...)` as an alternative."""
 
 MCP_JSON = """{
   "servers": {
@@ -245,16 +235,16 @@ MCP_JSON = """{
 """
 
 
-def _write_instructions(root, force):
-    """Create or idempotently update .github/copilot-instructions.md."""
-    gh_dir = os.path.join(root, ".github")
-    path = os.path.join(gh_dir, "copilot-instructions.md")
+def _write_managed_instructions(path, default_title):
+    """Create or idempotently update a Markdown instructions file."""
     block = "{begin}\n{body}\n{end}\n".format(
         begin=AGENT_MARK_BEGIN, body=AGENT_PROTOCOL, end=AGENT_MARK_END)
-    os.makedirs(gh_dir, exist_ok=True)
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     if not os.path.exists(path):
         with open(path, "w", encoding="utf-8") as f:
-            f.write("# Project instructions\n\n" + block)
+            f.write(default_title + "\n\n" + block)
         return "created " + path
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
@@ -268,6 +258,16 @@ def _write_instructions(root, force):
     with open(path, "a", encoding="utf-8") as f:
         f.write(sep + "\n" + block)
     return "appended ctxmem section to " + path
+
+
+def _write_copilot_instructions(root):
+    path = os.path.join(root, ".github", "copilot-instructions.md")
+    return _write_managed_instructions(path, "# Project memory")
+
+
+def _write_codex_instructions(root):
+    path = os.path.join(root, "AGENTS.md")
+    return _write_managed_instructions(path, "# Project memory")
 
 
 def _write_mcp(root, force):
@@ -516,11 +516,19 @@ def cmd_bench(args):
 
 def cmd_agent_init(args):
     root = args.root
-    print(_write_instructions(root, args.force))
+    if args.agent in ("copilot", "all"):
+        print(_write_copilot_instructions(root))
+    if args.agent in ("codex", "all"):
+        print(_write_codex_instructions(root))
     if args.mcp:
         print(_write_mcp(root, args.force))
+    agent_label = {
+        "copilot": "Copilot Agent",
+        "codex": "Codex",
+        "all": "Copilot/Codex",
+    }[args.agent]
     print("Agent integration ready. Ensure 'ctxmem' is on PATH, then start a new "
-          "Copilot Agent chat so the instructions are loaded.")
+          "{} chat/session so the instructions are loaded.".format(agent_label))
 
 
 def build_parser():
@@ -572,7 +580,10 @@ def build_parser():
 
     ag = sub.add_parser(
         "agent-init",
-        help="Wire up Copilot/agents (.github/copilot-instructions.md, optional MCP).")
+        help="Wire up Copilot/Codex agents (instructions files, optional MCP).")
+    ag.add_argument("--agent", default="copilot", choices=["copilot", "codex", "all"],
+                    help="Instruction target to write: copilot, codex, or all "
+                         "(default: copilot).")
     ag.add_argument("--mcp", action="store_true",
                     help="Also write .vscode/mcp.json for MCP-capable agents.")
     ag.add_argument("--force", action="store_true",

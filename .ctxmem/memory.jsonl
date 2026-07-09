@@ -1,2 +1,0 @@
-{"id": "738c29353dff", "ts": "2026-07-03T12:35:25.816160+00:00", "type": "decision", "branch": "HEAD", "commit": "none", "path": "", "title": "Auth via JWT", "content": "We chose stateless JWT over server sessions for horizontal scaling.", "tags": ["auth", "security"]}
-{"id": "4b6c2943f349", "ts": "2026-07-03T12:35:25.880808+00:00", "type": "decision", "branch": "HEAD", "commit": "none", "path": "", "title": "Payments", "content": "Payments go through Stripe, not PayPal.", "tags": ["payments"]}
