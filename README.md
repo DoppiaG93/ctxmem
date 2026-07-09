@@ -1,6 +1,10 @@
 <div align="center">
 
-# 🧠 ctxmem
+<p align="center">
+  <img src="assets/banner.png" alt="ctxmem banner" width="100%">
+</p>
+
+# ctxmem
 
 **Git-native, shareable project memory for AI coding agents — fully local, no cloud.**
 
@@ -30,22 +34,36 @@ demand, so nothing is forgotten when a chat exceeds the model's context window.
 
 ## 📑 Table of contents
 
-1. [🎯 The problem it solves](#-1-the-problem-it-solves)
-2. [💡 The core idea](#-2-the-core-idea)
-3. [🔄 How it works (data flow)](#-3-how-it-works-data-flow)
-4. [🗂️ Project structure](#️-4-project-structure)
-5. [📥 Install](#-5-install)
-6. [🚀 Quick start (5 minutes)](#-6-quick-start-5-minutes)
-7. [🧭 Full walkthrough](#-7-full-walkthrough-install-agent-colleague)
-8. [📖 Commands reference](#-8-commands-reference)
-9. [📊 Benchmark — how it was tested](#-9-benchmark--how-it-was-tested)
-10. [🔍 Search modes: keyword vs semantic vs hybrid](#-10-search-modes-keyword-vs-semantic-vs-hybrid)
-11. [🤝 Sharing with your team](#-11-sharing-with-your-team)
-12. [🪝 Auto-sync with a git hook](#-12-auto-sync-with-a-git-hook)
-13. [🤖 Use it from an AI agent](#-13-use-it-from-an-ai-agent)
-14. [🧪 Semantic backend with Ollama (beta)](#-14-semantic-backend-with-ollama-beta)
-15. [❓ FAQ](#-15-faq)
-16. [📄 License](#-16-license)
+- [ctxmem](#ctxmem)
+  - [📑 Table of contents](#-table-of-contents)
+  - [🎯 1. The problem it solves](#-1-the-problem-it-solves)
+  - [💡 2. The core idea](#-2-the-core-idea)
+  - [🔄 3. How it works (data flow)](#-3-how-it-works-data-flow)
+  - [🗂️ 4. Project structure](#️-4-project-structure)
+    - [The modules in plain words](#the-modules-in-plain-words)
+  - [📥 5. Install](#-5-install)
+  - [🚀 6. Quick start (5 minutes)](#-6-quick-start-5-minutes)
+  - [🧭 7. Full walkthrough (install, agent, colleague)](#-7-full-walkthrough-install-agent-colleague)
+    - [Step 1 — Add ctxmem to your codebase (once)](#step-1--add-ctxmem-to-your-codebase-once)
+    - [Step 2 — Seed a few decisions (you, one line each)](#step-2--seed-a-few-decisions-you-one-line-each)
+    - [Step 3 — Commit the memory so it can be shared](#step-3--commit-the-memory-so-it-can-be-shared)
+    - [Step 4 — Let the AI agent remember on its own (optional but powerful)](#step-4--let-the-ai-agent-remember-on-its-own-optional-but-powerful)
+    - [Step 5 — Your colleague gets the exact same context](#step-5--your-colleague-gets-the-exact-same-context)
+    - [Recap: what's manual vs automatic](#recap-whats-manual-vs-automatic)
+  - [📖 8. Commands reference](#-8-commands-reference)
+    - [Measuring token savings (`bench`)](#measuring-token-savings-bench)
+  - [📊 9. Benchmark — how it was tested](#-9-benchmark--how-it-was-tested)
+  - [🔍 10. Search modes: keyword vs semantic vs hybrid](#-10-search-modes-keyword-vs-semantic-vs-hybrid)
+  - [🤝 11. Sharing with your team](#-11-sharing-with-your-team)
+  - [🪝 12. Auto-sync with a git hook](#-12-auto-sync-with-a-git-hook)
+  - [🤖 13. Use it from an AI agent](#-13-use-it-from-an-ai-agent)
+    - [Option A — instructions + CLI (recommended, no MCP needed)](#option-a--instructions--cli-recommended-no-mcp-needed)
+    - [Option B — MCP server](#option-b--mcp-server)
+  - [🧪 14. Semantic backend with Ollama (beta)](#-14-semantic-backend-with-ollama-beta)
+    - [Option A — install Ollama on the host](#option-a--install-ollama-on-the-host)
+    - [Option B — run Ollama in an isolated Lima VM](#option-b--run-ollama-in-an-isolated-lima-vm)
+  - [❓ 15. FAQ](#-15-faq)
+  - [📄 16. License](#-16-license)
 
 ---
 
