@@ -134,7 +134,7 @@ ctxmem/
 ├── pyproject.toml            # Package metadata, CLI entry points, optional extras.
 ├── README.md                 # This file.
 ├── LICENSE                   # MIT.
-├── .gitignore                # Ignores venv, build artifacts, and .ctxmem/index.db.
+├── .gitignore                # Ignores local package-maintainer state and build artifacts.
 │
 ├── src/ctxmem/               # The Python package.
 │   ├── __init__.py           # Package version marker.
@@ -166,6 +166,10 @@ ctxmem/
     ├── .gitignore            # Keeps index.db out of git.
     └── index.db              # Derived, local-only search index.
 ```
+
+> Note: this `ctxmem` package repo is the exception: its own `.ctxmem/` is
+> maintainer-local and gitignored. In projects that use `ctxmem`, commit
+> `.ctxmem/memory.jsonl` and `.ctxmem/config.json`; ignore only `.ctxmem/index.db`.
 
 ### The modules in plain words
 
@@ -243,8 +247,8 @@ First, the key question up front:
 > | **Recall** context | you *or* the agent | you run `ctxmem recall`, **or** the AI calls the `recall` MCP tool |
 >
 > The code index maintains itself. Decisions are written either by you (one
-> command) or automatically by the agent once you wire up MCP + a short
-> instruction telling it to do so (Step 4 below).
+> command) or automatically by the agent once you wire up an instruction file
+> and, optionally, MCP tools (Step 4 below).
 
 ### Step 1 — Add ctxmem to your codebase (once)
 
@@ -293,10 +297,57 @@ Only the **source of truth** (`memory.jsonl`) and **config** are committed. The
 
 ### Step 4 — Let the AI agent remember on its own (optional but powerful)
 
-So far you typed the commands. To make the **agent** do it automatically, give it
-the MCP tools plus a one-time instruction.
+So far you typed the commands. To make the **agent** do it automatically, create
+the right instruction file for your tool:
 
-1) Register the MCP server — create `.vscode/mcp.json` in your repo:
+```bash
+ctxmem agent-init --agent codex      # writes/updates local AGENTS.md
+ctxmem agent-init --agent copilot    # writes/updates .github/copilot-instructions.md
+ctxmem agent-init --agent all        # writes both
+ctxmem agent-init --agent all --mcp  # also writes .vscode/mcp.json
+```
+
+Codex reads `AGENTS.md` (often kept local and gitignored). GitHub Copilot reads
+`.github/copilot-instructions.md`. The generated section is wrapped in ctxmem
+markers, so re-running `agent-init` updates only that section.
+
+If you prefer to wire it by hand, put this block in `AGENTS.md` for Codex or
+`.github/copilot-instructions.md` for Copilot:
+
+````markdown
+# Project memory
+
+This repo has a `ctxmem` memory. Before starting a task, run the `ctxmem recall`
+command in the terminal to load relevant decisions and code:
+
+```bash
+ctxmem recall "<short description of the task or question>"
+```
+
+When you make or confirm an important decision, run `ctxmem remember` so it is
+saved for future sessions and teammates:
+
+```bash
+ctxmem remember --type decision --title "Short title" "Detailed decision text"
+```
+
+After changing code, run `ctxmem sync` to rebuild the index.
+
+```bash
+ctxmem sync
+```
+
+If your agent supports the MCP protocol instead of running shell commands, it
+can call the MCP tools `recall(...)` and `remember(...)` as an alternative.
+````
+
+For MCP-capable clients, install the extra once:
+
+```bash
+pip install "ctxmem[mcp]"
+```
+
+Then register the local server. `agent-init --mcp` creates this VS Code file:
 
 ```json
 {
@@ -308,22 +359,10 @@ the MCP tools plus a one-time instruction.
   }
 }
 ```
-(Install the extra once: `pip install "ctxmem[mcp]"`.)
-
-2) Tell the agent when to use them — create `.github/copilot-instructions.md`:
-
-```markdown
-# Project memory
-
-This repo has a ctxmem memory. Before starting a task, call the `recall` tool
-with a short description of the task to load relevant decisions and code.
-When you make or confirm an important decision, call the `remember` tool
-(type: decision) so it is saved for future sessions and teammates.
-```
 
 Now, in a normal chat, the agent will:
-- call `recall` at the start → it "remembers" past decisions without you pasting them;
-- call `remember` when it decides something → the memory grows by itself.
+- run `ctxmem recall` at the start → it "remembers" past decisions without you pasting them;
+- run `ctxmem remember` when it decides something → the memory grows by itself.
 
 You can still use the CLI anytime; the agent and you write to the same memory.
 
@@ -340,9 +379,10 @@ ctxmem recall "which HTTP client do we use"
 ```
 
 They never ran `remember` — they simply pulled your `memory.jsonl`. The first
-`recall` rebuilt their local `index.db` automatically. If they use VS Code, the
-`.vscode/mcp.json` and `.github/copilot-instructions.md` are already in the repo,
-so **their** agent starts remembering too.
+`recall` rebuilt their local `index.db` automatically. If they use Codex, they
+can run `ctxmem agent-init --agent codex` to create their local `AGENTS.md`; if
+the repo includes `.github/copilot-instructions.md` or `.vscode/mcp.json`,
+those agent integrations travel with the repo.
 
 > **Two one-time, per-machine steps** that git can't do for you: `pip install`
 > ctxmem, and `ctxmem hook install` (git hooks live in `.git/`, which isn't
@@ -367,7 +407,7 @@ so **their** agent starts remembering too.
 | `ctxmem log [--limit]` | List recent memories. |
 | `ctxmem status` | Branch/commit, mode, and counts of indexed items. |
 | `ctxmem hook install`/`uninstall` | Add/remove a git post-commit auto-sync hook. |
-| `ctxmem agent-init [--mcp] [--force]` | Wire up Copilot/agents: write the memory protocol into `.github/copilot-instructions.md` (idempotent) and, with `--mcp`, a `.vscode/mcp.json`. |
+| `ctxmem agent-init [--agent copilot\|codex\|all] [--mcp] [--force]` | Wire up agents: write the memory protocol into `.github/copilot-instructions.md` for Copilot, local `AGENTS.md` for Codex, or both. With `--mcp`, also write `.vscode/mcp.json`. |
 | `ctxmem bench "query" [--baseline files\|memory\|repo]` | Measure **token savings** and **premium-request savings**: `recall` snippets vs feeding whole files/memory/repo. Add `--suite FILE --report DIR` for a full report with SVG charts. |
 | `ctxmem --root PATH …` | Run against a repo other than the current directory. |
 
@@ -533,8 +573,8 @@ works from inside a virtualenv.
 
 ## 🤖 13. Use it from an AI agent
 
-There are two ways to connect an agent (e.g. GitHub Copilot) to the memory. They
-are independent — use whichever your setup allows.
+There are two ways to connect an agent (e.g. Codex or GitHub Copilot) to the
+memory. They are independent — use whichever your setup allows.
 
 ### Option A — instructions + CLI (recommended, no MCP needed)
 
@@ -545,8 +585,10 @@ file. This works even when MCP is unavailable or disabled by policy.
 Set it up in one command from your repo root:
 
 ```bash
-ctxmem agent-init          # writes/updates .github/copilot-instructions.md
-ctxmem agent-init --mcp    # also drop a .vscode/mcp.json (for Option B)
+ctxmem agent-init --agent codex      # writes/updates local AGENTS.md
+ctxmem agent-init --agent copilot    # writes/updates .github/copilot-instructions.md
+ctxmem agent-init --agent all        # writes both instruction files
+ctxmem agent-init --agent all --mcp  # also drop a .vscode/mcp.json (for Option B)
 ```
 
 This inserts a **Project Memory Protocol** between managed markers
@@ -554,19 +596,23 @@ This inserts a **Project Memory Protocol** between managed markers
 file already exists it appends the section; re-running updates that section in
 place without duplicating it or touching your other instructions.
 
-The protocol tells the agent to, on **every task**:
+Codex uses `AGENTS.md` (often kept local and gitignored). GitHub Copilot uses
+`.github/copilot-instructions.md`. The default remains `--agent copilot` for
+backward compatibility.
 
-1. run `ctxmem recall "<the request>"` first, to load relevant context;
-2. run `ctxmem remember …` whenever it explains a non-trivial part of the code or
-   makes a decision — as a mandatory end-of-turn self-check;
+The protocol tells the agent to:
+
+1. run `ctxmem recall "<the request>"` before a task, to load relevant context;
+2. run `ctxmem remember …` when it makes or confirms an important decision;
 3. run `ctxmem sync` after changing code.
 
 Requirements & tips:
 
 - **`ctxmem` must be on PATH** in the terminal the agent uses. If you installed it
   in a venv, expose it globally, e.g. `ln -s "$(command -v ctxmem)" ~/.local/bin/`.
-- Use the agent in a mode that can run terminal commands (VS Code Copilot
-  **Agent** mode). Choose **"Always allow"** for `ctxmem` to remove friction.
+- Use the agent in a mode that can run terminal commands (Codex, or VS Code
+  Copilot **Agent** mode). Choose **"Always allow"** for `ctxmem` when your
+  client offers command allow-listing.
 - Start a **new chat** after `agent-init` so the updated instructions load.
 - **Reality check:** LLMs are probabilistic — a strong, imperative protocol makes
   proactive saving *reliable*, not *guaranteed*. For 100% determinism, save
