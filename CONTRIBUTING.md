@@ -14,16 +14,23 @@ cd ctxmem
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 
-pip install -e ".[all]"              # editable install with all optional extras
+python -m pip install --upgrade pip
+pip install -e ".[all,dev]"          # optional runtime extras + pytest/pylint
 ctxmem --help                        # verify the CLI works
 ```
 
 Requirements: **Python 3.8+**. The core has zero third-party dependencies; the
-extras (`mcp`, `semantic`, `bench`) are optional.
+extras (`mcp`, `semantic`, `bench`, `test`, `lint`, `dev`) are optional.
 
-> There is no automated test suite yet. Validate your changes by running the CLI
-> end to end (`init` → `remember` → `sync` → `recall`) and describe how you
-> tested them in the pull request.
+Before opening a pull request, run the local checks:
+
+```bash
+python -m pytest
+python -m pylint src/ctxmem tests
+ctxmem --help
+```
+
+The same test and lint checks run in GitHub Actions for pull requests only.
 
 ---
 

@@ -252,4 +252,3 @@ def svg_grouped_bars(title, subtitle, rows, path,
     with open(path, "w", encoding="utf-8") as f:
         f.write(svg)
     return path
-

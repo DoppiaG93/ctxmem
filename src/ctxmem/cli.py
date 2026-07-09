@@ -34,12 +34,13 @@ def _require_memory(root):
 
 def cmd_init(args):
     root = args.root
-    base, jsonl_path, db_path = store.memory_paths(root)
+    base, jsonl_path, _ = store.memory_paths(root)
     if not store.fts5_available():
         sys.exit("Your Python's sqlite3 has no FTS5 support; ctxmem needs it.")
     os.makedirs(base, exist_ok=True)
     if not os.path.exists(jsonl_path):
-        open(jsonl_path, "a", encoding="utf-8").close()
+        with open(jsonl_path, "a", encoding="utf-8"):
+            pass
     cfg = store.load_config(root)
     cfg["mode"] = args.mode
     store.save_config(root, cfg)
@@ -76,7 +77,8 @@ def cmd_mode(args):
 def cmd_remember(args):
     root = args.root
     _require_memory(root)
-    base, jsonl_path, db_path = store.memory_paths(root)
+    _, jsonl_path, db_path = store.memory_paths(root)
+    db_exists = os.path.exists(db_path)
     rec = {
         "id": store.new_id(),
         "ts": store.now_iso(),
@@ -90,9 +92,10 @@ def cmd_remember(args):
     }
     store.append_jsonl(jsonl_path, rec)
     conn = retrieval.get_conn(root)
-    rec["source"] = "memory"
-    store.insert_row(conn, rec)
-    conn.commit()
+    if db_exists:
+        rec["source"] = "memory"
+        store.insert_row(conn, rec)
+        conn.commit()
     print("Remembered [{}] {} (branch={}, commit={})".format(
         rec["type"], rec["title"] or rec["content"][:40], rec["branch"], rec["commit"]))
 
@@ -127,7 +130,7 @@ def cmd_recall(args):
 
 def cmd_sync(args):
     _require_memory(args.root)
-    conn, mem_rows, code_rows, emb_rows = retrieval.rebuild(args.root, verbose=True)
+    _, mem_rows, code_rows, emb_rows = retrieval.rebuild(args.root, verbose=True)
     msg = "Index rebuilt: {} memory records, {} code symbols".format(mem_rows, code_rows)
     if emb_rows:
         msg += ", {} embeddings".format(emb_rows)
@@ -390,7 +393,7 @@ def _print_bench_table(metrics, baseline, method, as_markdown):
         rb, rw, rfac))
 
 
-def _write_bench_report(metrics, root, baseline, method, out_dir):
+def _write_bench_report(metrics, root, method, out_dir):
     """Write report.md + tokens.svg + requests.svg to out_dir."""
     os.makedirs(out_dir, exist_ok=True)
 
@@ -498,7 +501,7 @@ def cmd_bench(args):
                 skipped, "y" if skipped == 1 else "ies"))
         if args.report:
             report, tok_svg, req_svg = _write_bench_report(
-                metrics, root, args.baseline, method, args.report)
+                metrics, root, method, args.report)
             print("\nReport written:")
             print("  {}".format(report))
             print("  {}".format(tok_svg))

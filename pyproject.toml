@@ -19,6 +19,15 @@ mcp = ["mcp>=1.2.0"]
 # Semantic/hybrid search is beta (experimental, under active testing).
 semantic = ["sqlite-vec>=0.1.0"]
 bench = ["tiktoken>=0.5.0"]
+test = ["pytest>=7.4,<8.4"]
+lint = [
+    "pylint>=3.2,<4",
+    "pytest>=7.4,<8.4",
+]
+dev = [
+    "pytest>=7.4,<8.4",
+    "pylint>=3.2,<4",
+]
 all = ["mcp>=1.2.0", "sqlite-vec>=0.1.0", "tiktoken>=0.5.0"]
 
 [project.scripts]
@@ -31,3 +40,34 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pylint.main]
+py-version = "3.8"
+ignore = [".ctxmem", ".git", ".venv", "build", "dist"]
+persistent = false
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.messages_control]
+disable = [
+    "broad-exception-caught",
+    "consider-using-f-string",
+    "duplicate-code",
+    "import-outside-toplevel",
+    "invalid-name",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "redefined-builtin",
+    "too-many-arguments",
+    "too-many-locals",
+    "too-many-positional-arguments",
+    "too-few-public-methods",
+]
+
+[tool.pylint.typecheck]
+ignored-modules = ["mcp.server.fastmcp", "sqlite_vec", "tiktoken"]

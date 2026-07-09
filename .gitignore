@@ -5,10 +5,8 @@ build/
 dist/
 .venv/
 venv/
-.github/
-
-# Local maintainer state for this package repo.
-# Downstream repos should commit .ctxmem/memory.jsonl + .ctxmem/config.json
-# and ignore only .ctxmem/index.db.
+.github/*
+!.github/workflows/
+!.github/workflows/*.yml
 .ctxmem/
 AGENTS.md

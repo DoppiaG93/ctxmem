@@ -14,7 +14,7 @@ from .indexer import index_code
 
 def rebuild(root, verbose=False):
     """Drop and rebuild index.db from JSONL + code, plus embeddings if enabled."""
-    base, jsonl_path, db_path = store.memory_paths(root)
+    _, jsonl_path, db_path = store.memory_paths(root)
     if os.path.exists(db_path):
         os.remove(db_path)
     conn = store.connect(db_path)
@@ -41,7 +41,7 @@ def rebuild(root, verbose=False):
 
 
 def get_conn(root):
-    base, jsonl_path, db_path = store.memory_paths(root)
+    base, _, db_path = store.memory_paths(root)
     if not os.path.isdir(base):
         return None
     if not os.path.exists(db_path):
