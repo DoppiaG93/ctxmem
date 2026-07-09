@@ -1,0 +1,33 @@
+[project]
+name = "ctxmem"
+version = "0.1.0"
+description = "Git-native, shareable project memory for AI coding agents — fully local, no cloud."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{ name = "DoppiaG93" }]
+license = { text = "MIT" }
+keywords = ["ai", "llm", "coding-agent", "mcp", "copilot", "memory", "context", "cli"]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/DoppiaG93/ctxmem"
+Repository = "https://github.com/DoppiaG93/ctxmem"
+Issues = "https://github.com/DoppiaG93/ctxmem/issues"
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2.0"]
+# Semantic/hybrid search is beta (experimental, under active testing).
+semantic = ["sqlite-vec>=0.1.0"]
+bench = ["tiktoken>=0.5.0"]
+all = ["mcp>=1.2.0", "sqlite-vec>=0.1.0", "tiktoken>=0.5.0"]
+
+[project.scripts]
+ctxmem = "ctxmem.cli:main"
+ctxmem-mcp = "ctxmem.mcp_server:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

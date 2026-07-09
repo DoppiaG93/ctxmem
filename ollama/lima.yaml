@@ -1,0 +1,50 @@
+# Ollama in a Lima VM — provides the local embedding backend for ctxmem's
+# `semantic` / `hybrid` modes. Guest port 11434 is forwarded to the host, so
+# ctxmem (default ollama_url http://localhost:11434) works with zero extra config.
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+    digest: "sha256:53fdde898feed8b027d94baa9cfe8229867f330a1d9c49dc7d84465ee7f229f7"
+
+# Embeddings run fine on CPU; this is comfortable head-room.
+memory: "8GiB"
+cpus: 4
+
+portForwards:
+  - guestPort: 11434
+    hostPort: 11434
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      apt-get update
+      apt-get install -y ca-certificates curl
+      # Official Ollama installer (open source, MIT).
+      curl -fsSL https://ollama.com/install.sh | sh
+      systemctl enable --now ollama
+
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      # Wait for the local Ollama server, then pull the lightweight embedding model.
+      for i in $(seq 1 60); do
+        if curl -fsS http://localhost:11434/api/tags >/dev/null 2>&1; then break; fi
+        sleep 2
+      done
+      ollama pull nomic-embed-text
+
+probes:
+  - description: "ollama is serving on 11434"
+    script: |
+      #!/bin/bash
+      set -eu -o pipefail
+      until curl -fsS http://localhost:11434/api/tags >/dev/null 2>&1; do
+        sleep 2
+      done
+    hint: |
+      The Ollama server did not come up. Check logs with:
+        limactl shell ollama -- journalctl -u ollama --no-pager
