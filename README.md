@@ -697,10 +697,17 @@ protocol here are fully open and self-hosted.
 
 ## 🤝 16. Contributing
 
-Contributions are welcome! This project follows the **Git Flow** branching model
-(`feature/*`, `bugfix/*`, `hotfix/*` → `develop` → `main`). Before opening a pull
-request, please read the **[Contributing guide](CONTRIBUTING.md)** — it covers
-branch naming, commit conventions, labels, milestones, and the release process.
+**Contributions are currently invite-only.** The project is developed by a small
+set of invited collaborators, so unsolicited pull requests are not accepted right
+now — but **bug reports and feature requests are always welcome** via
+[GitHub issues](https://github.com/DoppiaG93/ctxmem/issues). If you would like to
+contribute code, reach out to [@DoppiaG93](https://github.com/DoppiaG93) to be
+added as a collaborator.
+
+Invited collaborators follow the **Git Flow** branching model (`feature/*`,
+`bugfix/*`, `hotfix/*` → `develop` → `main`); see the
+**[Contributing guide](CONTRIBUTING.md)** for branch naming, commit conventions,
+and the release process.
 
 Please also review our [Code of Conduct](CODE_OF_CONDUCT.md). To report a security
 issue, follow the [Security Policy](SECURITY.md) instead of opening a public issue.
