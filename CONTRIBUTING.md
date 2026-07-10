@@ -1,7 +1,17 @@
 # 🤝 Contributing to ctxmem
 
-Thanks for your interest in improving **ctxmem**! This guide explains how the
-project is organized and how to propose changes.
+Thanks for your interest in **ctxmem**!
+
+> **⚠️ Contributions are currently invite-only.**
+> The project is developed by a small set of invited collaborators, and
+> unsolicited pull requests are not being accepted at this time. If you would
+> like to contribute, please reach out to the maintainer
+> ([@DoppiaG93](https://github.com/DoppiaG93)) to be added as a collaborator
+> first. **Bug reports and feature requests are always welcome** through
+> [GitHub issues](https://github.com/DoppiaG93/ctxmem/issues).
+
+The rest of this guide explains how the project is organized and the workflow
+invited collaborators are expected to follow.
 
 ---
 
@@ -90,8 +100,8 @@ patch release) and `develop` (so it isn't lost).
 Releases flow from `develop` to `main`:
 
 1. Make sure `develop` has everything intended for the release.
-2. Bump the version in [`pyproject.toml`](pyproject.toml) and
-   `src/ctxmem/__init__.py`.
+2. Bump the version in [`pyproject.toml`](pyproject.toml) (single source of
+   truth — `ctxmem.__version__` reads it from the installed package metadata).
 3. Open a PR **`develop` → `main`** (e.g. `Release v0.2.0`).
 4. After merge, tag the release on `main`:
    ```bash
