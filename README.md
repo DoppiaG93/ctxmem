@@ -8,11 +8,12 @@
 
 **Git-native, shareable project memory for AI coding agents — fully local, no cloud.**
 
+[![Test](https://github.com/DoppiaG93/ctxmem/actions/workflows/test.yml/badge.svg)](https://github.com/DoppiaG93/ctxmem/actions/workflows/test.yml)
+[![Lint](https://github.com/DoppiaG93/ctxmem/actions/workflows/lint.yml/badge.svg)](https://github.com/DoppiaG93/ctxmem/actions/workflows/lint.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/core%20deps-zero-brightgreen.svg)](pyproject.toml)
 [![MCP](https://img.shields.io/badge/MCP-ready-8A2BE2.svg)](https://modelcontextprotocol.io)
-[![Status](https://img.shields.io/badge/status-active-success.svg)](#)
 
 </div>
 
@@ -29,6 +30,10 @@ demand, so nothing is forgotten when a chat exceeds the model's context window.
 - 🔒 **Fully local** — SQLite files in your repo. No cloud, no API keys, no servers.
 - 🔍 **Search modes** — `keyword` (built-in) plus `semantic` / `hybrid` (🧪 **beta**,
   local embeddings).
+
+<p align="center">
+  <img src="assets/demo.svg" alt="ctxmem demo: init, remember, sync, recall" width="90%">
+</p>
 
 ---
 
@@ -330,60 +335,14 @@ Codex reads `AGENTS.md` (often kept local and gitignored). GitHub Copilot reads
 `.github/copilot-instructions.md`. The generated section is wrapped in ctxmem
 markers, so re-running `agent-init` updates only that section.
 
-If you prefer to wire it by hand, put this block in `AGENTS.md` for Codex or
-`.github/copilot-instructions.md` for Copilot:
+The injected **Project Memory Protocol** tells the agent to `recall` before a
+task, `remember` when it makes a decision, and `sync` after changing code. For
+the full protocol text, the manual wiring, and MCP setup, see
+[§13 Use it from an AI agent](#-13-use-it-from-an-ai-agent).
 
-````markdown
-# Project memory
-
-This repo has a `ctxmem` memory. Before starting a task, run the `ctxmem recall`
-command in the terminal to load relevant decisions and code:
-
-```bash
-ctxmem recall "<short description of the task or question>"
-```
-
-When you make or confirm an important decision, run `ctxmem remember` so it is
-saved for future sessions and teammates:
-
-```bash
-ctxmem remember --type decision --title "Short title" "Detailed decision text"
-```
-
-After changing code, run `ctxmem sync` to rebuild the index.
-
-```bash
-ctxmem sync
-```
-
-If your agent supports the MCP protocol instead of running shell commands, it
-can call the MCP tools `recall(...)` and `remember(...)` as an alternative.
-````
-
-For MCP-capable clients, install the extra once:
-
-```bash
-pip install "ctxmem[mcp]"
-```
-
-Then register the local server. `agent-init --mcp` creates this VS Code file:
-
-```json
-{
-  "servers": {
-    "ctxmem": {
-      "command": "ctxmem-mcp",
-      "env": { "CTXMEM_ROOT": "${workspaceFolder}" }
-    }
-  }
-}
-```
-
-Now, in a normal chat, the agent will:
-- run `ctxmem recall` at the start → it "remembers" past decisions without you pasting them;
-- run `ctxmem remember` when it decides something → the memory grows by itself.
-
-You can still use the CLI anytime; the agent and you write to the same memory.
+Now, in a normal chat, the agent recalls past decisions at the start and records
+new ones as it goes — the memory grows by itself. You can still use the CLI
+anytime; the agent and you write to the same memory.
 
 ### Step 5 — Your colleague gets the exact same context
 
@@ -742,6 +701,9 @@ Contributions are welcome! This project follows the **Git Flow** branching model
 (`feature/*`, `bugfix/*`, `hotfix/*` → `develop` → `main`). Before opening a pull
 request, please read the **[Contributing guide](CONTRIBUTING.md)** — it covers
 branch naming, commit conventions, labels, milestones, and the release process.
+
+Please also review our [Code of Conduct](CODE_OF_CONDUCT.md). To report a security
+issue, follow the [Security Policy](SECURITY.md) instead of opening a public issue.
 
 ## 📄 17. License
 
