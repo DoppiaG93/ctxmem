@@ -21,12 +21,12 @@ semantic = ["sqlite-vec>=0.1.0"]
 bench = ["tiktoken>=0.5.0"]
 test = ["pytest>=7.4,<8.4"]
 lint = [
-    "pylint>=3.2,<4",
+    "pylint>=3.2,<5",
     "pytest>=7.4,<8.4",
 ]
 dev = [
     "pytest>=7.4,<8.4",
-    "pylint>=3.2,<4",
+    "pylint>=3.2,<5",
 ]
 all = ["mcp>=1.2.0", "sqlite-vec>=0.1.0", "tiktoken>=0.5.0"]
 
