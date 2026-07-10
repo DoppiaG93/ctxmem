@@ -31,6 +31,10 @@ demand, so nothing is forgotten when a chat exceeds the model's context window.
 - 🔍 **Search modes** — `keyword` (built-in) plus `semantic` / `hybrid` (🧪 **beta**,
   local embeddings).
 
+<p align="center">
+  <img src="assets/demo.svg" alt="ctxmem demo: init, remember, sync, recall" width="90%">
+</p>
+
 ---
 
 ## 📑 Table of contents
