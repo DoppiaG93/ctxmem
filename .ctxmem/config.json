@@ -1,0 +1,5 @@
+{
+  "mode": "keyword",
+  "embed_model": "nomic-embed-text",
+  "ollama_url": "http://localhost:11434"
+}
