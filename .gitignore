@@ -8,6 +8,10 @@ venv/
 .github/*
 !.github/workflows/
 !.github/workflows/*.yml
+!.github/ISSUE_TEMPLATE/
+!.github/ISSUE_TEMPLATE/*
+!.github/PULL_REQUEST_TEMPLATE.md
+!.github/dependabot.yml
 
 # ctxmem: share the memory (memory.jsonl + config.json), ignore the derived index
 .ctxmem/index.db
