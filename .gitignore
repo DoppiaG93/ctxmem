@@ -8,5 +8,8 @@ venv/
 .github/*
 !.github/workflows/
 !.github/workflows/*.yml
-.ctxmem/
+
+# ctxmem: share the memory (memory.jsonl + config.json), ignore the derived index
+.ctxmem/index.db
+
 AGENTS.md
