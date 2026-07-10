@@ -100,8 +100,8 @@ patch release) and `develop` (so it isn't lost).
 Releases flow from `develop` to `main`:
 
 1. Make sure `develop` has everything intended for the release.
-2. Bump the version in [`pyproject.toml`](pyproject.toml) and
-   `src/ctxmem/__init__.py`.
+2. Bump the version in [`pyproject.toml`](pyproject.toml) (single source of
+   truth — `ctxmem.__version__` reads it from the installed package metadata).
 3. Open a PR **`develop` → `main`** (e.g. `Release v0.2.0`).
 4. After merge, tag the release on `main`:
    ```bash
