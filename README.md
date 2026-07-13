@@ -24,6 +24,11 @@ repo**. AI agents (and you) can store decisions and recall relevant context on
 demand, so nothing is forgotten when a chat exceeds the model's context window.
 
 - 🧠 **Remembers** — decisions, notes, sessions + your code, in a searchable index.
+- 🔎 **Self-checking** — `ctxmem ask` tells the agent whether memory already knows
+  (`HIT` / `WEAK` / `MISS`) *before* it answers, so recall becomes a habit.
+- ♻️ **Self-correcting** — supersede an outdated decision (`--supersedes`); recall
+  demotes and flags it (`⚠ SUPERSEDED`), and warns when a memory points at code
+  that no longer exists (`⚠ STALE`).
 - 🤝 **Shareable** — the memory is a text file committed to git. You commit, your
   colleague pulls, and they have *your exact context*. Branch-aware for free.
 - 📦 **Works as a git package** — `pip install git+https://…`, zero required deps.
@@ -188,7 +193,7 @@ ctxmem/
 | `retrieval.py` | Rebuild the index; pick keyword/semantic/hybrid; fallback. | `rebuild`, `get_conn`, `search` |
 | `bench.py` | Measure token / request savings; render SVG charts. | `count_tokens`, `baseline_text`, `svg_grouped_bars` |
 | `cli.py` | The user-facing commands. | one `cmd_*` per subcommand |
-| `mcp_server.py` | The agent-facing tools over MCP. | `recall`, `remember`, `memory_status` |
+| `mcp_server.py` | The agent-facing tools over MCP. | `recall`, `ask`, `remember`, `memory_status` |
 
 Both `cli.py` and `mcp_server.py` are thin: they call into `retrieval.py`, which
 calls `store.py`, `indexer.py`, and (optionally) `embeddings.py`. One brain, two
@@ -241,6 +246,7 @@ ctxmem remember --type decision \
   "We chose stateless JWT over server sessions for horizontal scaling."
 
 ctxmem sync                                   # also index your code
+ctxmem ask "how do we handle authentication"      # verdict: HIT / WEAK / MISS
 ctxmem recall "how do we handle authentication"   # ask in plain language
 ctxmem recall "cart" --type symbol            # search only code symbols
 ctxmem log                                     # recent memories
@@ -378,8 +384,9 @@ those agent integrations travel with the repo.
 | Command | What it does |
 |---------|--------------|
 | `ctxmem init [--mode M]` | Create `.ctxmem/` and pick a search mode. |
-| `ctxmem remember "text" [--type --title --tags --path]` | Store a memory (→ `memory.jsonl`). Types: `note`, `decision`, `session`, `todo`. |
-| `ctxmem recall "query" [--limit --type --mode]` | Search memory + code. |
+| `ctxmem remember "text" [--type --title --tags --path --supersedes ID]` | Store a memory (→ `memory.jsonl`); prints the new record's `id`. Types: `note`, `decision`, `session`, `todo`. Use `--supersedes ID` to correct/replace an earlier memory. |
+| `ctxmem recall "query" [--limit --type --mode]` | Search memory + code. Superseded records are demoted + flagged `⚠ SUPERSEDED`; memories pointing at a missing file are flagged `⚠ STALE`. |
+| `ctxmem ask "question" [--limit --type --mode]` | Recall **plus a verdict**: `HIT` (memory knows), `WEAK` (only related code/superseded notes), or `MISS` (nothing). Use it to check memory *before* answering. |
 | `ctxmem sync` | Rebuild `index.db` from `memory.jsonl` + code (+ embeddings if enabled). |
 | `ctxmem mode [M]` | Show, or switch to, `keyword` / `semantic` 🧪 / `hybrid` 🧪. |
 | `ctxmem log [--limit]` | List recent memories. |
@@ -580,9 +587,13 @@ backward compatibility.
 
 The protocol tells the agent to:
 
-1. run `ctxmem recall "<the request>"` before a task, to load relevant context;
-2. run `ctxmem remember …` when it makes or confirms an important decision;
-3. run `ctxmem sync` after changing code.
+1. run `ctxmem ask "<the request>"` **before answering**, to check whether the
+   memory already knows (verdict `HIT` / `WEAK` / `MISS`) and load context;
+2. **reconcile** conflicts — if the current code contradicts a memory (e.g. a
+   record flagged `⚠ STALE` or `⚠ SUPERSEDED`), trust the code and correct the
+   memory with `ctxmem remember --supersedes <id> …`;
+3. run `ctxmem remember …` when it makes or confirms an important decision;
+4. run `ctxmem sync` after changing code.
 
 Requirements & tips:
 
@@ -625,7 +636,9 @@ Register it (VS Code `.vscode/mcp.json`, also created by `agent-init --mcp`):
 Tools exposed to the agent:
 
 - `recall(query, limit, type, mode)` — pull relevant context before a task.
-- `remember(content, type, title, tags)` — record a decision when done.
+- `ask(query, limit, type, mode)` — recall **plus** a `HIT` / `WEAK` / `MISS` verdict.
+- `remember(content, type, title, tags, supersedes)` — record a decision (or
+  correct an earlier one via `supersedes`).
 - `memory_status()` — mode, branch/commit, index counts.
 
 **The pattern (both options):** the agent calls `recall` at the start of a task

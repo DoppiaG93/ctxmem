@@ -96,7 +96,8 @@ def init_schema(conn):
             content,
             tags,
             source UNINDEXED,
-            ts UNINDEXED
+            ts UNINDEXED,
+            supersedes UNINDEXED
         )
         """
     )
@@ -106,8 +107,9 @@ def init_schema(conn):
 def insert_row(conn, rec):
     conn.execute(
         "INSERT INTO mem "
-        "(mem_id, type, branch, commit_hash, path, title, content, tags, source, ts) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "(mem_id, type, branch, commit_hash, path, title, content, tags, source, ts, "
+        "supersedes) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             rec.get("id", new_id()),
             rec.get("type", "note"),
@@ -119,6 +121,7 @@ def insert_row(conn, rec):
             " ".join(rec.get("tags", [])),
             rec.get("source", "memory"),
             rec.get("ts", ""),
+            rec.get("supersedes", ""),
         ),
     )
 
@@ -180,3 +183,38 @@ def counts(conn):
     return conn.execute(
         "SELECT type, COUNT(*) AS n FROM mem GROUP BY type ORDER BY n DESC"
     ).fetchall()
+
+
+def find_memory(conn, mem_id):
+    """Return the stored memory row for an id, or None."""
+    return conn.execute(
+        "SELECT mem_id, type, title, content FROM mem "
+        "WHERE mem_id = ? AND source = 'memory' LIMIT 1",
+        (mem_id,),
+    ).fetchone()
+
+
+def supersede_index(conn):
+    """Map how memory records supersede one another.
+
+    Returns two dicts keyed by mem_id:
+      superseded_by[old_id] = {"id": new_id, "title": new_title}
+      replaces[new_id]      = {"id": old_id, "title": old_title}
+
+    A record is "superseded" (stale) when its id appears in superseded_by.
+    """
+    titles = {}
+    links = []
+    for row in conn.execute(
+        "SELECT mem_id, title, supersedes FROM mem WHERE source = 'memory'"
+    ):
+        titles[row["mem_id"]] = row["title"] or ""
+        old = (row["supersedes"] or "").strip()
+        if old:
+            links.append((old, row["mem_id"]))
+    superseded_by = {}
+    replaces = {}
+    for old_id, newer_id in links:
+        superseded_by[old_id] = {"id": newer_id, "title": titles.get(newer_id, "")}
+        replaces[newer_id] = {"id": old_id, "title": titles.get(old_id, "")}
+    return superseded_by, replaces
