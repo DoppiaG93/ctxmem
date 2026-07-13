@@ -5,11 +5,14 @@ ctxmem command line.
     ctxmem mode [keyword|semantic|hybrid]          show or change search mode
     ctxmem remember "..."                          store a decision/note/session
     ctxmem recall "query" [--mode ...]             search memory + code
+    ctxmem ask "question"                          recall + HIT/WEAK/MISS verdict
     ctxmem sync                                    rebuild the index
+    ctxmem map                                     save a codebase structure map to memory
     ctxmem log                                      recent memories
     ctxmem status                                  what is indexed
     ctxmem hook install|uninstall                  git post-commit auto-sync
     ctxmem agent-init [--agent ...] [--mcp]         wire up Copilot/Codex/agents
+    ctxmem update-instructions [--mcp]             refresh agent instructions after upgrade
     ctxmem bench "query"                            token usage: with vs without ctxmem
 
 Shareability: commit .ctxmem/memory.jsonl and .ctxmem/config.json. A colleague
@@ -21,7 +24,7 @@ import os
 import sys
 
 from . import bench as benchmod
-from . import embeddings, gitinfo, retrieval, store
+from . import codemap, embeddings, gitinfo, retrieval, store
 
 MODES = ["keyword", "semantic", "hybrid"]
 
@@ -79,6 +82,12 @@ def cmd_remember(args):
     _require_memory(root)
     _, jsonl_path, db_path = store.memory_paths(root)
     db_exists = os.path.exists(db_path)
+    supersedes = (getattr(args, "supersedes", "") or "").strip()
+    if supersedes:
+        conn = retrieval.get_conn(root)
+        if conn is not None and store.find_memory(conn, supersedes) is None:
+            print("[warn] --supersedes {}: no memory with that id; "
+                  "recording anyway.".format(supersedes), file=sys.stderr)
     rec = {
         "id": store.new_id(),
         "ts": store.now_iso(),
@@ -89,6 +98,7 @@ def cmd_remember(args):
         "title": args.title or "",
         "content": args.content,
         "tags": args.tags.split(",") if args.tags else [],
+        "supersedes": supersedes,
     }
     store.append_jsonl(jsonl_path, rec)
     conn = retrieval.get_conn(root)
@@ -96,20 +106,62 @@ def cmd_remember(args):
         rec["source"] = "memory"
         store.insert_row(conn, rec)
         conn.commit()
-    print("Remembered [{}] {} (branch={}, commit={})".format(
-        rec["type"], rec["title"] or rec["content"][:40], rec["branch"], rec["commit"]))
+    suffix = " (supersedes {})".format(supersedes) if supersedes else ""
+    print("Remembered [{}] {} (branch={}, commit={}){}".format(
+        rec["type"], rec["title"] or rec["content"][:40],
+        rec["branch"], rec["commit"], suffix))
+    print("  id: {}".format(rec["id"]))
 
 
 def _print_row(row):
     kind = row.get("type", "")
     title = row.get("title") or ""
     path = row.get("path") or ""
-    print("  [{}] {}".format(kind, title if title else path))
+    marks = []
+    if row.get("_superseded"):
+        by = row.get("_superseded_by") or {}
+        marks.append("\u26a0 SUPERSEDED by {}".format(by.get("title") or by.get("id") or "?"))
+    elif row.get("_replaces"):
+        old = row.get("_replaces") or {}
+        marks.append("\u21b3 replaces {}".format(old.get("title") or old.get("id") or "?"))
+    if row.get("_stale"):
+        marks.append("\u26a0 STALE ({})".format(row.get("_stale")))
+    mark = (" " + " ".join(marks)) if marks else ""
+    print("  [{}]{} {}".format(kind, mark, title if title else path))
     if path and title:
         print("      @ {}".format(path))
+    if row.get("type") == "map":
+        for cl in (row.get("content") or "").splitlines():
+            print("      {}".format(cl))
+        return
     snippet = " ".join((row.get("content") or "").split())
     if snippet:
         print("      {}".format(snippet[:160]))
+
+
+def _verdict(rows):
+    """Classify a result set so an agent can decide if memory already knows.
+
+    HIT  -> memory holds at least one active (non-superseded) decision/note.
+    WEAK -> only related code symbols, or every memory match is superseded.
+    MISS -> nothing matched.
+    """
+    if not rows:
+        return "MISS", "memory has nothing on this; answer fresh, then remember it."
+    active_mem = [r for r in rows
+                  if r.get("type") != "symbol" and not r.get("_superseded")]
+    if active_mem:
+        kinds = {}
+        for r in active_mem:
+            kinds[r.get("type", "note")] = kinds.get(r.get("type", "note"), 0) + 1
+        summary = ", ".join(
+            "{} {}{}".format(n, k, "" if n == 1 else "s") for k, n in kinds.items())
+        note = ""
+        if any(r.get("_stale") for r in active_mem):
+            note = " (some records look stale \u2014 verify against the code)"
+        return "HIT", "memory has {}{}.".format(summary, note)
+    return "WEAK", ("no stored decision \u2014 only related code/superseded notes; "
+                    "verify and consider remembering.")
 
 
 def cmd_recall(args):
@@ -122,6 +174,23 @@ def cmd_recall(args):
         type_filter=args.type, mode_override=args.mode)
     if not rows:
         print("No matches for: {}".format(args.query))
+        return
+    print("Top {} results for '{}' [{}]:".format(len(rows), args.query, used))
+    for row in rows:
+        _print_row(row)
+
+
+def cmd_ask(args):
+    root = args.root
+    conn = retrieval.get_conn(root)
+    if conn is None:
+        sys.exit("No memory here. Run 'ctxmem init' first.")
+    rows, used = retrieval.search(
+        conn, args.query, root, limit=args.limit,
+        type_filter=args.type, mode_override=args.mode)
+    verdict, detail = _verdict(rows)
+    print("VERDICT: {} \u2014 {}".format(verdict, detail))
+    if not rows:
         return
     print("Top {} results for '{}' [{}]:".format(len(rows), args.query, used))
     for row in rows:
@@ -206,24 +275,55 @@ def cmd_hook(args):
 AGENT_MARK_BEGIN = "<!-- ctxmem:begin (managed by `ctxmem agent-init`) -->"
 AGENT_MARK_END = "<!-- ctxmem:end -->"
 
-AGENT_PROTOCOL = """This repo has a `ctxmem` memory. Before starting a task, run the
-`ctxmem recall` command in the terminal to load relevant decisions and code:
+AGENT_PROTOCOL = """This repo has a `ctxmem` memory: a shared, git-committed record of
+decisions and code context. Treat it as your first source of truth and keep it
+correct. Follow this loop on EVERY request, without being asked.
+
+**1. Recall first — before answering.**
+Before you respond to a question or start a task, query the memory to check
+whether the answer is already known:
 
 ```bash
-ctxmem recall "<short description of the task or question>"
+ctxmem ask "<the user's question or task, in a few words>"
 ```
 
-When you make or confirm an important decision, run `ctxmem remember` so it is
-saved for future sessions and teammates:
+`ask` prints a verdict: **HIT** (memory has an answer — base your reply on the
+listed records), **WEAK** (only related code/superseded notes — verify), or
+**MISS** (nothing — answer fresh, then remember it). Do this even for questions
+you think you can answer from your own context.
+
+**2. Reconcile — decide who is right.**
+If what the memory says conflicts with your own context or with the current
+code, do not silently pick one. Verify against the actual code in the repo:
+
+- If the **code/reality** proves the memory is outdated, correct the memory
+  (step 3) and tell the user what changed.
+- If the **memory** is right and your context was stale, trust the memory.
+
+Records shown with `⚠ SUPERSEDED` are already outdated — use the newer one.
+Records shown with `⚠ STALE` point at code that no longer exists — verify against
+the repo and supersede them if they are wrong.
+
+**3. Remember — persist every decision and correction.**
+When you make or confirm an important decision, save it:
 
 ```bash
 ctxmem remember --type decision --title "Short title" "Detailed decision text"
 ```
 
-After changing code, run `ctxmem sync` to rebuild the index.
+When you find that an existing memory is wrong or obsolete, replace it instead
+of just adding a new one (this demotes and flags the old record in recall):
 
-If your agent supports the MCP protocol instead of running shell commands, it can
-call the MCP tools `recall(...)` and `remember(...)` as an alternative."""
+```bash
+ctxmem remember --type decision --title "Corrected title" \\
+  --supersedes <old-memory-id> "What is now true and why it changed"
+```
+
+Each `remember` prints the new record's `id`; use it as the `--supersedes`
+target later. After changing code, run `ctxmem sync` to rebuild the index.
+
+If your agent supports the MCP protocol instead of running shell commands, use
+the MCP tools `recall(...)` and `remember(..., supersedes="<id>")` the same way."""
 
 MCP_JSON = """{
   "servers": {
@@ -238,10 +338,17 @@ MCP_JSON = """{
 """
 
 
+def _ctxmem_version():
+    from . import __version__
+    return __version__
+
+
 def _write_managed_instructions(path, default_title):
     """Create or idempotently update a Markdown instructions file."""
-    block = "{begin}\n{body}\n{end}\n".format(
-        begin=AGENT_MARK_BEGIN, body=AGENT_PROTOCOL, end=AGENT_MARK_END)
+    footer = ("\n\n_Managed by ctxmem {} \u2014 run `ctxmem update-instructions` "
+              "after upgrading._").format(_ctxmem_version())
+    block = "{begin}\n{body}{footer}\n{end}\n".format(
+        begin=AGENT_MARK_BEGIN, body=AGENT_PROTOCOL, footer=footer, end=AGENT_MARK_END)
     parent = os.path.dirname(path)
     if parent:
         os.makedirs(parent, exist_ok=True)
@@ -534,6 +641,92 @@ def cmd_agent_init(args):
           "{} chat/session so the instructions are loaded.".format(agent_label))
 
 
+def cmd_update_instructions(args):
+    root = args.root
+    targets = [
+        os.path.join(root, ".github", "copilot-instructions.md"),
+        os.path.join(root, "AGENTS.md"),
+    ]
+    updated = [_write_managed_instructions(p, "# Project memory")
+               for p in targets if os.path.exists(p)]
+    if getattr(args, "mcp", False):
+        mcp_path = os.path.join(root, ".vscode", "mcp.json")
+        if os.path.exists(mcp_path):
+            updated.append(_write_mcp(root, force=True))
+    if not updated:
+        print("No managed instruction files found. Run 'ctxmem agent-init' first.")
+        return
+    for line in updated:
+        print(line)
+    print("Instructions refreshed to ctxmem {}. Start a new agent chat to load them."
+          .format(_ctxmem_version()))
+
+
+def cmd_map(args):
+    root = args.root
+    _require_memory(root)
+    _, jsonl_path, db_path = store.memory_paths(root)
+    body, n_files, n_syms = codemap.build_map(root)
+    branch, commit = gitinfo.branch(root), gitinfo.commit(root)
+    content = "Codebase map (branch {}, commit {}). {} files, {} symbols.\n\n{}".format(
+        branch, commit, n_files, n_syms, body)
+    conn = retrieval.get_conn(root)
+    prev = store.latest_memory_id(conn, "map") if conn is not None else None
+    rec = {
+        "id": store.new_id(),
+        "ts": store.now_iso(),
+        "type": "map",
+        "branch": branch,
+        "commit": commit,
+        "path": "",
+        "title": "Codebase map",
+        "content": content,
+        "tags": ["map", "structure"],
+        "supersedes": prev or "",
+    }
+    store.append_jsonl(jsonl_path, rec)
+    if os.path.exists(db_path):
+        rec["source"] = "memory"
+        store.insert_row(conn, rec)
+        conn.commit()
+    note = " (superseded previous map {})".format(prev) if prev else ""
+    print("Saved codebase map: {} files, {} symbols [id {}]{}.".format(
+        n_files, n_syms, rec["id"], note))
+    print("Recall it any time with: ctxmem recall \"codebase map\" --type map")
+
+
+def _add_search_args(parser, func, query_help):
+    """Wire up the shared query/limit/type/mode args for recall and ask."""
+    parser.add_argument("query", help=query_help)
+    parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--type", default=None,
+                        choices=["note", "decision", "session", "todo", "map", "symbol"])
+    parser.add_argument("--mode", default=None, choices=MODES,
+                        help="Override the configured mode for this query.")
+    parser.set_defaults(func=func)
+
+
+def _add_agent_parsers(sub):
+    ag = sub.add_parser(
+        "agent-init",
+        help="Wire up Copilot/Codex agents (instructions files, optional MCP).")
+    ag.add_argument("--agent", default="copilot", choices=["copilot", "codex", "all"],
+                    help="Instruction target to write: copilot, codex, or all "
+                         "(default: copilot).")
+    ag.add_argument("--mcp", action="store_true",
+                    help="Also write .vscode/mcp.json for MCP-capable agents.")
+    ag.add_argument("--force", action="store_true",
+                    help="Overwrite .vscode/mcp.json if it already exists.")
+    ag.set_defaults(func=cmd_agent_init)
+
+    ui = sub.add_parser(
+        "update-instructions",
+        help="Refresh the managed agent instruction block(s) after upgrading ctxmem.")
+    ui.add_argument("--mcp", action="store_true",
+                    help="Also overwrite .vscode/mcp.json if it already exists.")
+    ui.set_defaults(func=cmd_update_instructions)
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="ctxmem", description="Git-native project memory.")
     p.add_argument("--root", default=".", help="Project root (default: cwd).")
@@ -556,19 +749,23 @@ def build_parser():
     r.add_argument("--title", default="", help="Short title.")
     r.add_argument("--path", default="", help="Related file path.")
     r.add_argument("--tags", default="", help="Comma-separated tags.")
+    r.add_argument("--supersedes", default="", metavar="MEM_ID",
+                   help="Id of a previous memory this record corrects/replaces.")
     r.set_defaults(func=cmd_remember)
 
     rc = sub.add_parser("recall", help="Search the memory.")
-    rc.add_argument("query", help="Search text.")
-    rc.add_argument("--limit", type=int, default=10)
-    rc.add_argument("--type", default=None,
-                    choices=["note", "decision", "session", "todo", "symbol"])
-    rc.add_argument("--mode", default=None, choices=MODES,
-                    help="Override the configured mode for this query.")
-    rc.set_defaults(func=cmd_recall)
+    _add_search_args(rc, cmd_recall, "Search text.")
+
+    ak = sub.add_parser(
+        "ask", help="Recall + a HIT/WEAK/MISS verdict on whether memory knows.")
+    _add_search_args(ak, cmd_ask, "The question to check against memory.")
 
     s = sub.add_parser("sync", help="Rebuild the index from jsonl + code.")
     s.set_defaults(func=cmd_sync)
+
+    mp = sub.add_parser(
+        "map", help="Scan the codebase and save a structure + import map into memory.")
+    mp.set_defaults(func=cmd_map)
 
     lg = sub.add_parser("log", help="Show recent memories.")
     lg.add_argument("--limit", type=int, default=10)
@@ -581,17 +778,7 @@ def build_parser():
     hk.add_argument("action", choices=["install", "uninstall"])
     hk.set_defaults(func=cmd_hook)
 
-    ag = sub.add_parser(
-        "agent-init",
-        help="Wire up Copilot/Codex agents (instructions files, optional MCP).")
-    ag.add_argument("--agent", default="copilot", choices=["copilot", "codex", "all"],
-                    help="Instruction target to write: copilot, codex, or all "
-                         "(default: copilot).")
-    ag.add_argument("--mcp", action="store_true",
-                    help="Also write .vscode/mcp.json for MCP-capable agents.")
-    ag.add_argument("--force", action="store_true",
-                    help="Overwrite .vscode/mcp.json if it already exists.")
-    ag.set_defaults(func=cmd_agent_init)
+    _add_agent_parsers(sub)
 
     bn = sub.add_parser(
         "bench",

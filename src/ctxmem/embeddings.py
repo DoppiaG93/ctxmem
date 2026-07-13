@@ -76,7 +76,7 @@ def build(conn, cfg):
     load_extension(conn)
 
     rows = conn.execute(
-        "SELECT type, path, title, content FROM mem").fetchall()
+        "SELECT mem_id, type, path, title, content FROM mem").fetchall()
     if not rows:
         return 0
 
@@ -92,15 +92,17 @@ def build(conn, cfg):
     conn.execute("DROP TABLE IF EXISTS emb_meta")
     conn.execute(
         "CREATE TABLE emb_meta "
-        "(id INTEGER PRIMARY KEY, type TEXT, path TEXT, title TEXT, content TEXT)")
+        "(id INTEGER PRIMARY KEY, mem_id TEXT, type TEXT, path TEXT, "
+        "title TEXT, content TEXT)")
 
     def insert(i, vec, row):
         conn.execute(
             "INSERT INTO vec_mem(rowid, embedding) VALUES (?, ?)",
             (i, sqlite_vec.serialize_float32(vec)))
         conn.execute(
-            "INSERT INTO emb_meta(id, type, path, title, content) VALUES (?,?,?,?,?)",
-            (i, row["type"], row["path"], row["title"], row["content"]))
+            "INSERT INTO emb_meta(id, mem_id, type, path, title, content) "
+            "VALUES (?,?,?,?,?,?)",
+            (i, row["mem_id"], row["type"], row["path"], row["title"], row["content"]))
 
     insert(1, first, rows[0])
     for i, row in enumerate(rows[1:], start=2):
@@ -119,7 +121,7 @@ def search(conn, query, cfg, limit=8, type_filter=None):
         "  SELECT rowid, distance FROM vec_mem "
         "  WHERE embedding MATCH ? ORDER BY distance LIMIT ?"
         ") "
-        "SELECT m.type, m.path, m.title, m.content, knn.distance "
+        "SELECT m.mem_id, m.type, m.path, m.title, m.content, knn.distance "
         "FROM knn JOIN emb_meta m ON m.id = knn.rowid ORDER BY knn.distance",
         (qvec, k),
     ).fetchall()

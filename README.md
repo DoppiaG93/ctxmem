@@ -24,6 +24,11 @@ repo**. AI agents (and you) can store decisions and recall relevant context on
 demand, so nothing is forgotten when a chat exceeds the model's context window.
 
 - 🧠 **Remembers** — decisions, notes, sessions + your code, in a searchable index.
+- 🔎 **Self-checking** — `ctxmem ask` tells the agent whether memory already knows
+  (`HIT` / `WEAK` / `MISS`) *before* it answers, so recall becomes a habit.
+- ♻️ **Self-correcting** — supersede an outdated decision (`--supersedes`); recall
+  demotes and flags it (`⚠ SUPERSEDED`), and warns when a memory points at code
+  that no longer exists (`⚠ STALE`).
 - 🤝 **Shareable** — the memory is a text file committed to git. You commit, your
   colleague pulls, and they have *your exact context*. Branch-aware for free.
 - 📦 **Works as a git package** — `pip install git+https://…`, zero required deps.
@@ -150,6 +155,8 @@ ctxmem/
 │   │                         #   insert/append/search/read helpers.
 │   ├── indexer.py            # Scans source files and extracts code "symbols"
 │   │                         #   (functions/classes) into searchable chunks.
+│   ├── codemap.py            # Builds a structure + Python import map of the repo
+│   │                         #   for `ctxmem map` (reuses indexer filters + ast).
 │   ├── embeddings.py         # 🧪 beta: talks to Ollama for embeddings and to
 │   │                         #   sqlite-vec for vector KNN search.
 │   ├── retrieval.py          # The brain: rebuilds the index and dispatches a query
@@ -184,11 +191,12 @@ ctxmem/
 | `gitinfo.py` | Know which branch/commit we're on. | `branch()`, `commit()` |
 | `store.py` | Read/write files + SQLite. Defines the FTS5 table. | `memory_paths`, `load_config`, `init_schema`, `insert_row`, `append_jsonl`, `search` |
 | `indexer.py` | Turn code files into searchable symbol chunks. | `extract_symbols`, `index_code` |
+| `codemap.py` | Build a structure + Python import map for `ctxmem map`. | `build_map` |
 | `embeddings.py` 🧪 | Beta: local embeddings (Ollama) + vector KNN (sqlite-vec). | `available`, `embed`, `build`, `search` |
 | `retrieval.py` | Rebuild the index; pick keyword/semantic/hybrid; fallback. | `rebuild`, `get_conn`, `search` |
 | `bench.py` | Measure token / request savings; render SVG charts. | `count_tokens`, `baseline_text`, `svg_grouped_bars` |
 | `cli.py` | The user-facing commands. | one `cmd_*` per subcommand |
-| `mcp_server.py` | The agent-facing tools over MCP. | `recall`, `remember`, `memory_status` |
+| `mcp_server.py` | The agent-facing tools over MCP. | `recall`, `ask`, `remember`, `memory_status` |
 
 Both `cli.py` and `mcp_server.py` are thin: they call into `retrieval.py`, which
 calls `store.py`, `indexer.py`, and (optionally) `embeddings.py`. One brain, two
@@ -241,6 +249,7 @@ ctxmem remember --type decision \
   "We chose stateless JWT over server sessions for horizontal scaling."
 
 ctxmem sync                                   # also index your code
+ctxmem ask "how do we handle authentication"      # verdict: HIT / WEAK / MISS
 ctxmem recall "how do we handle authentication"   # ask in plain language
 ctxmem recall "cart" --type symbol            # search only code symbols
 ctxmem log                                     # recent memories
@@ -335,6 +344,10 @@ Codex reads `AGENTS.md` (often kept local and gitignored). GitHub Copilot reads
 `.github/copilot-instructions.md`. The generated section is wrapped in ctxmem
 markers, so re-running `agent-init` updates only that section.
 
+After upgrading ctxmem (`pip install -U ctxmem`), run `ctxmem update-instructions`
+to refresh the managed block in whichever of those files already exist — the block
+carries a version footer so you can tell when it is stale.
+
 The injected **Project Memory Protocol** tells the agent to `recall` before a
 task, `remember` when it makes a decision, and `sync` after changing code. For
 the full protocol text, the manual wiring, and MCP setup, see
@@ -378,14 +391,17 @@ those agent integrations travel with the repo.
 | Command | What it does |
 |---------|--------------|
 | `ctxmem init [--mode M]` | Create `.ctxmem/` and pick a search mode. |
-| `ctxmem remember "text" [--type --title --tags --path]` | Store a memory (→ `memory.jsonl`). Types: `note`, `decision`, `session`, `todo`. |
-| `ctxmem recall "query" [--limit --type --mode]` | Search memory + code. |
+| `ctxmem remember "text" [--type --title --tags --path --supersedes ID]` | Store a memory (→ `memory.jsonl`); prints the new record's `id`. Types: `note`, `decision`, `session`, `todo`. Use `--supersedes ID` to correct/replace an earlier memory. |
+| `ctxmem recall "query" [--limit --type --mode]` | Search memory + code. Superseded records are demoted + flagged `⚠ SUPERSEDED`; memories pointing at a missing file are flagged `⚠ STALE`. |
+| `ctxmem ask "question" [--limit --type --mode]` | Recall **plus a verdict**: `HIT` (memory knows), `WEAK` (only related code/superseded notes), or `MISS` (nothing). Use it to check memory *before* answering. |
 | `ctxmem sync` | Rebuild `index.db` from `memory.jsonl` + code (+ embeddings if enabled). |
+| `ctxmem map` | Scan the codebase and save a **structure + Python import map** into memory (`--type map`). Re-running refreshes it (supersedes the previous map). Great as a first step so agents know the layout. |
 | `ctxmem mode [M]` | Show, or switch to, `keyword` / `semantic` 🧪 / `hybrid` 🧪. |
 | `ctxmem log [--limit]` | List recent memories. |
 | `ctxmem status` | Branch/commit, mode, and counts of indexed items. |
 | `ctxmem hook install`/`uninstall` | Add/remove a git post-commit auto-sync hook. |
 | `ctxmem agent-init [--agent copilot\|codex\|all] [--mcp] [--force]` | Wire up agents: write the memory protocol into `.github/copilot-instructions.md` for Copilot, local `AGENTS.md` for Codex, or both. With `--mcp`, also write `.vscode/mcp.json`. |
+| `ctxmem update-instructions [--mcp]` | Refresh the managed instruction block(s) in existing agent files after upgrading ctxmem (idempotent). With `--mcp`, also overwrite `.vscode/mcp.json` if present. |
 | `ctxmem bench "query" [--baseline files\|memory\|repo]` | Measure **token savings** and **premium-request savings**: `recall` snippets vs feeding whole files/memory/repo. Add `--suite FILE --report DIR` for a full report with SVG charts. |
 | `ctxmem --root PATH …` | Run against a repo other than the current directory. |
 
@@ -580,9 +596,13 @@ backward compatibility.
 
 The protocol tells the agent to:
 
-1. run `ctxmem recall "<the request>"` before a task, to load relevant context;
-2. run `ctxmem remember …` when it makes or confirms an important decision;
-3. run `ctxmem sync` after changing code.
+1. run `ctxmem ask "<the request>"` **before answering**, to check whether the
+   memory already knows (verdict `HIT` / `WEAK` / `MISS`) and load context;
+2. **reconcile** conflicts — if the current code contradicts a memory (e.g. a
+   record flagged `⚠ STALE` or `⚠ SUPERSEDED`), trust the code and correct the
+   memory with `ctxmem remember --supersedes <id> …`;
+3. run `ctxmem remember …` when it makes or confirms an important decision;
+4. run `ctxmem sync` after changing code.
 
 Requirements & tips:
 
@@ -625,7 +645,9 @@ Register it (VS Code `.vscode/mcp.json`, also created by `agent-init --mcp`):
 Tools exposed to the agent:
 
 - `recall(query, limit, type, mode)` — pull relevant context before a task.
-- `remember(content, type, title, tags)` — record a decision when done.
+- `ask(query, limit, type, mode)` — recall **plus** a `HIT` / `WEAK` / `MISS` verdict.
+- `remember(content, type, title, tags, supersedes)` — record a decision (or
+  correct an earlier one via `supersedes`).
 - `memory_status()` — mode, branch/commit, index counts.
 
 **The pattern (both options):** the agent calls `recall` at the start of a task
