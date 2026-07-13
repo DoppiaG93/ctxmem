@@ -68,6 +68,37 @@ def _merge(primary, secondary, limit):
     return out
 
 
+def _annotate(conn, rows, root):
+    """Flag stale and superseded records; push superseded ones to the bottom.
+
+    - Staleness: a memory record whose `path` points to a file that no longer
+      exists on disk is marked `_stale` — the code changed, so the agent should
+      verify (and likely supersede) that memory.
+    - Supersede: a record replaced by a newer decision is marked and demoted,
+      but still returned so the agent can see *why* it changed.
+    """
+    for row in rows:
+        if row.get("type") == "symbol":
+            continue
+        path = (row.get("path") or "").strip()
+        if path and not os.path.exists(os.path.join(root, path)):
+            row["_stale"] = "missing file: {}".format(path)
+
+    superseded_by, replaces = store.supersede_index(conn)
+    if superseded_by:
+        for row in rows:
+            mem_id = row.get("mem_id")
+            if not mem_id:
+                continue
+            if mem_id in superseded_by:
+                row["_superseded"] = True
+                row["_superseded_by"] = superseded_by[mem_id]
+            if mem_id in replaces:
+                row["_replaces"] = replaces[mem_id]
+    # Stable sort: active records keep their order, superseded ones sink last.
+    return sorted(rows, key=lambda r: 1 if r.get("_superseded") else 0)
+
+
 def search(conn, query, root, limit=10, type_filter=None, mode_override=None):
     """Return (rows_as_dicts, mode_used)."""
     cfg = store.load_config(root)
@@ -76,17 +107,20 @@ def search(conn, query, root, limit=10, type_filter=None, mode_override=None):
     def keyword():
         return [dict(r) for r in store.search(conn, query, limit, type_filter)]
 
+    def finish(rows, used):
+        return _annotate(conn, rows, root), used
+
     if mode == "keyword":
-        return keyword(), "keyword"
+        return finish(keyword(), "keyword")
 
     if not embeddings.available(cfg):
-        return keyword(), "keyword (fallback)"
+        return finish(keyword(), "keyword (fallback)")
 
     if not embeddings.index_fresh(conn):
         embeddings.build(conn, cfg)
 
     semantic = embeddings.search(conn, query, cfg, limit, type_filter)
     if mode == "semantic":
-        return semantic, "semantic"
+        return finish(semantic, "semantic")
 
-    return _merge(semantic, keyword(), limit), "hybrid"
+    return finish(_merge(semantic, keyword(), limit), "hybrid")
