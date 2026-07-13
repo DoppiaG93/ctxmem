@@ -194,6 +194,16 @@ def find_memory(conn, mem_id):
     ).fetchone()
 
 
+def latest_memory_id(conn, type_):
+    """Return the id of the most recent memory record of a given type, or None."""
+    row = conn.execute(
+        "SELECT mem_id FROM mem WHERE type = ? AND source = 'memory' "
+        "ORDER BY ts DESC LIMIT 1",
+        (type_,),
+    ).fetchone()
+    return row["mem_id"] if row else None
+
+
 def supersede_index(conn):
     """Map how memory records supersede one another.
 

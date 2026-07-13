@@ -97,3 +97,55 @@ def test_cli_ask_reports_hit_weak_and_miss(tmp_path):
 
     miss = run_cli(["--root", str(tmp_path), "ask", "completely unrelated zxqw"])
     assert "VERDICT: MISS" in miss
+
+
+def test_cli_map_saves_structure_into_memory(tmp_path):
+    run_cli(["--root", str(tmp_path), "init"])
+    pkg = tmp_path / "src" / "demo"
+    pkg.mkdir(parents=True)
+    (pkg / "core.py").write_text(
+        "from . import helper\n\n\ndef run():\n    return helper.value()\n",
+        encoding="utf-8",
+    )
+    (pkg / "helper.py").write_text(
+        "def value():\n    return 42\n",
+        encoding="utf-8",
+    )
+
+    out = run_cli(["--root", str(tmp_path), "map"])
+    assert "Saved codebase map" in out
+
+    recall_out = run_cli(["--root", str(tmp_path), "recall", "codebase map", "--type", "map"])
+    assert "[map]" in recall_out
+    assert "src/demo/core.py" in recall_out
+    assert "Local import graph" in recall_out
+
+
+def test_cli_map_supersedes_previous_map(tmp_path):
+    run_cli(["--root", str(tmp_path), "init"])
+    (tmp_path / "a.py").write_text("def one():\n    return 1\n", encoding="utf-8")
+
+    first = run_cli(["--root", str(tmp_path), "map"])
+    assert "superseded" not in first
+
+    second = run_cli(["--root", str(tmp_path), "map"])
+    assert "superseded previous map" in second
+
+
+def test_cli_update_instructions_refreshes_existing_file(tmp_path):
+    run_cli(["--root", str(tmp_path), "init"])
+    run_cli(["--root", str(tmp_path), "agent-init", "--agent", "copilot"])
+
+    out = run_cli(["--root", str(tmp_path), "update-instructions"])
+    assert "copilot-instructions.md" in out
+    assert "Instructions refreshed" in out
+
+    content = (tmp_path / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
+    assert "Managed by ctxmem" in content
+
+
+def test_cli_update_instructions_without_files_hints_agent_init(tmp_path):
+    run_cli(["--root", str(tmp_path), "init"])
+
+    out = run_cli(["--root", str(tmp_path), "update-instructions"])
+    assert "Run 'ctxmem agent-init' first" in out
