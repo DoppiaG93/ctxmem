@@ -97,4 +97,3 @@ def test_cli_ask_reports_hit_weak_and_miss(tmp_path):
 
     miss = run_cli(["--root", str(tmp_path), "ask", "completely unrelated zxqw"])
     assert "VERDICT: MISS" in miss
-
