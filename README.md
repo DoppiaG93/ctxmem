@@ -155,6 +155,8 @@ ctxmem/
 │   │                         #   insert/append/search/read helpers.
 │   ├── indexer.py            # Scans source files and extracts code "symbols"
 │   │                         #   (functions/classes) into searchable chunks.
+│   ├── codemap.py            # Builds a structure + Python import map of the repo
+│   │                         #   for `ctxmem map` (reuses indexer filters + ast).
 │   ├── embeddings.py         # 🧪 beta: talks to Ollama for embeddings and to
 │   │                         #   sqlite-vec for vector KNN search.
 │   ├── retrieval.py          # The brain: rebuilds the index and dispatches a query
@@ -189,6 +191,7 @@ ctxmem/
 | `gitinfo.py` | Know which branch/commit we're on. | `branch()`, `commit()` |
 | `store.py` | Read/write files + SQLite. Defines the FTS5 table. | `memory_paths`, `load_config`, `init_schema`, `insert_row`, `append_jsonl`, `search` |
 | `indexer.py` | Turn code files into searchable symbol chunks. | `extract_symbols`, `index_code` |
+| `codemap.py` | Build a structure + Python import map for `ctxmem map`. | `build_map` |
 | `embeddings.py` 🧪 | Beta: local embeddings (Ollama) + vector KNN (sqlite-vec). | `available`, `embed`, `build`, `search` |
 | `retrieval.py` | Rebuild the index; pick keyword/semantic/hybrid; fallback. | `rebuild`, `get_conn`, `search` |
 | `bench.py` | Measure token / request savings; render SVG charts. | `count_tokens`, `baseline_text`, `svg_grouped_bars` |
@@ -341,6 +344,10 @@ Codex reads `AGENTS.md` (often kept local and gitignored). GitHub Copilot reads
 `.github/copilot-instructions.md`. The generated section is wrapped in ctxmem
 markers, so re-running `agent-init` updates only that section.
 
+After upgrading ctxmem (`pip install -U ctxmem`), run `ctxmem update-instructions`
+to refresh the managed block in whichever of those files already exist — the block
+carries a version footer so you can tell when it is stale.
+
 The injected **Project Memory Protocol** tells the agent to `recall` before a
 task, `remember` when it makes a decision, and `sync` after changing code. For
 the full protocol text, the manual wiring, and MCP setup, see
@@ -388,11 +395,13 @@ those agent integrations travel with the repo.
 | `ctxmem recall "query" [--limit --type --mode]` | Search memory + code. Superseded records are demoted + flagged `⚠ SUPERSEDED`; memories pointing at a missing file are flagged `⚠ STALE`. |
 | `ctxmem ask "question" [--limit --type --mode]` | Recall **plus a verdict**: `HIT` (memory knows), `WEAK` (only related code/superseded notes), or `MISS` (nothing). Use it to check memory *before* answering. |
 | `ctxmem sync` | Rebuild `index.db` from `memory.jsonl` + code (+ embeddings if enabled). |
+| `ctxmem map` | Scan the codebase and save a **structure + Python import map** into memory (`--type map`). Re-running refreshes it (supersedes the previous map). Great as a first step so agents know the layout. |
 | `ctxmem mode [M]` | Show, or switch to, `keyword` / `semantic` 🧪 / `hybrid` 🧪. |
 | `ctxmem log [--limit]` | List recent memories. |
 | `ctxmem status` | Branch/commit, mode, and counts of indexed items. |
 | `ctxmem hook install`/`uninstall` | Add/remove a git post-commit auto-sync hook. |
 | `ctxmem agent-init [--agent copilot\|codex\|all] [--mcp] [--force]` | Wire up agents: write the memory protocol into `.github/copilot-instructions.md` for Copilot, local `AGENTS.md` for Codex, or both. With `--mcp`, also write `.vscode/mcp.json`. |
+| `ctxmem update-instructions [--mcp]` | Refresh the managed instruction block(s) in existing agent files after upgrading ctxmem (idempotent). With `--mcp`, also overwrite `.vscode/mcp.json` if present. |
 | `ctxmem bench "query" [--baseline files\|memory\|repo]` | Measure **token savings** and **premium-request savings**: `recall` snippets vs feeding whole files/memory/repo. Add `--suite FILE --report DIR` for a full report with SVG charts. |
 | `ctxmem --root PATH …` | Run against a repo other than the current directory. |
 

@@ -7,10 +7,12 @@ ctxmem command line.
     ctxmem recall "query" [--mode ...]             search memory + code
     ctxmem ask "question"                          recall + HIT/WEAK/MISS verdict
     ctxmem sync                                    rebuild the index
+    ctxmem map                                     save a codebase structure map to memory
     ctxmem log                                      recent memories
     ctxmem status                                  what is indexed
     ctxmem hook install|uninstall                  git post-commit auto-sync
     ctxmem agent-init [--agent ...] [--mcp]         wire up Copilot/Codex/agents
+    ctxmem update-instructions [--mcp]             refresh agent instructions after upgrade
     ctxmem bench "query"                            token usage: with vs without ctxmem
 
 Shareability: commit .ctxmem/memory.jsonl and .ctxmem/config.json. A colleague
@@ -22,7 +24,7 @@ import os
 import sys
 
 from . import bench as benchmod
-from . import embeddings, gitinfo, retrieval, store
+from . import codemap, embeddings, gitinfo, retrieval, store
 
 MODES = ["keyword", "semantic", "hybrid"]
 
@@ -128,6 +130,10 @@ def _print_row(row):
     print("  [{}]{} {}".format(kind, mark, title if title else path))
     if path and title:
         print("      @ {}".format(path))
+    if row.get("type") == "map":
+        for cl in (row.get("content") or "").splitlines():
+            print("      {}".format(cl))
+        return
     snippet = " ".join((row.get("content") or "").split())
     if snippet:
         print("      {}".format(snippet[:160]))
@@ -332,10 +338,17 @@ MCP_JSON = """{
 """
 
 
+def _ctxmem_version():
+    from . import __version__
+    return __version__
+
+
 def _write_managed_instructions(path, default_title):
     """Create or idempotently update a Markdown instructions file."""
-    block = "{begin}\n{body}\n{end}\n".format(
-        begin=AGENT_MARK_BEGIN, body=AGENT_PROTOCOL, end=AGENT_MARK_END)
+    footer = ("\n\n_Managed by ctxmem {} \u2014 run `ctxmem update-instructions` "
+              "after upgrading._").format(_ctxmem_version())
+    block = "{begin}\n{body}{footer}\n{end}\n".format(
+        begin=AGENT_MARK_BEGIN, body=AGENT_PROTOCOL, footer=footer, end=AGENT_MARK_END)
     parent = os.path.dirname(path)
     if parent:
         os.makedirs(parent, exist_ok=True)
@@ -628,15 +641,90 @@ def cmd_agent_init(args):
           "{} chat/session so the instructions are loaded.".format(agent_label))
 
 
+def cmd_update_instructions(args):
+    root = args.root
+    targets = [
+        os.path.join(root, ".github", "copilot-instructions.md"),
+        os.path.join(root, "AGENTS.md"),
+    ]
+    updated = [_write_managed_instructions(p, "# Project memory")
+               for p in targets if os.path.exists(p)]
+    if getattr(args, "mcp", False):
+        mcp_path = os.path.join(root, ".vscode", "mcp.json")
+        if os.path.exists(mcp_path):
+            updated.append(_write_mcp(root, force=True))
+    if not updated:
+        print("No managed instruction files found. Run 'ctxmem agent-init' first.")
+        return
+    for line in updated:
+        print(line)
+    print("Instructions refreshed to ctxmem {}. Start a new agent chat to load them."
+          .format(_ctxmem_version()))
+
+
+def cmd_map(args):
+    root = args.root
+    _require_memory(root)
+    _, jsonl_path, db_path = store.memory_paths(root)
+    body, n_files, n_syms = codemap.build_map(root)
+    branch, commit = gitinfo.branch(root), gitinfo.commit(root)
+    content = "Codebase map (branch {}, commit {}). {} files, {} symbols.\n\n{}".format(
+        branch, commit, n_files, n_syms, body)
+    conn = retrieval.get_conn(root)
+    prev = store.latest_memory_id(conn, "map") if conn is not None else None
+    rec = {
+        "id": store.new_id(),
+        "ts": store.now_iso(),
+        "type": "map",
+        "branch": branch,
+        "commit": commit,
+        "path": "",
+        "title": "Codebase map",
+        "content": content,
+        "tags": ["map", "structure"],
+        "supersedes": prev or "",
+    }
+    store.append_jsonl(jsonl_path, rec)
+    if os.path.exists(db_path):
+        rec["source"] = "memory"
+        store.insert_row(conn, rec)
+        conn.commit()
+    note = " (superseded previous map {})".format(prev) if prev else ""
+    print("Saved codebase map: {} files, {} symbols [id {}]{}.".format(
+        n_files, n_syms, rec["id"], note))
+    print("Recall it any time with: ctxmem recall \"codebase map\" --type map")
+
+
 def _add_search_args(parser, func, query_help):
     """Wire up the shared query/limit/type/mode args for recall and ask."""
     parser.add_argument("query", help=query_help)
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--type", default=None,
-                        choices=["note", "decision", "session", "todo", "symbol"])
+                        choices=["note", "decision", "session", "todo", "map", "symbol"])
     parser.add_argument("--mode", default=None, choices=MODES,
                         help="Override the configured mode for this query.")
     parser.set_defaults(func=func)
+
+
+def _add_agent_parsers(sub):
+    ag = sub.add_parser(
+        "agent-init",
+        help="Wire up Copilot/Codex agents (instructions files, optional MCP).")
+    ag.add_argument("--agent", default="copilot", choices=["copilot", "codex", "all"],
+                    help="Instruction target to write: copilot, codex, or all "
+                         "(default: copilot).")
+    ag.add_argument("--mcp", action="store_true",
+                    help="Also write .vscode/mcp.json for MCP-capable agents.")
+    ag.add_argument("--force", action="store_true",
+                    help="Overwrite .vscode/mcp.json if it already exists.")
+    ag.set_defaults(func=cmd_agent_init)
+
+    ui = sub.add_parser(
+        "update-instructions",
+        help="Refresh the managed agent instruction block(s) after upgrading ctxmem.")
+    ui.add_argument("--mcp", action="store_true",
+                    help="Also overwrite .vscode/mcp.json if it already exists.")
+    ui.set_defaults(func=cmd_update_instructions)
 
 
 def build_parser():
@@ -675,6 +763,10 @@ def build_parser():
     s = sub.add_parser("sync", help="Rebuild the index from jsonl + code.")
     s.set_defaults(func=cmd_sync)
 
+    mp = sub.add_parser(
+        "map", help="Scan the codebase and save a structure + import map into memory.")
+    mp.set_defaults(func=cmd_map)
+
     lg = sub.add_parser("log", help="Show recent memories.")
     lg.add_argument("--limit", type=int, default=10)
     lg.set_defaults(func=cmd_log)
@@ -686,17 +778,7 @@ def build_parser():
     hk.add_argument("action", choices=["install", "uninstall"])
     hk.set_defaults(func=cmd_hook)
 
-    ag = sub.add_parser(
-        "agent-init",
-        help="Wire up Copilot/Codex agents (instructions files, optional MCP).")
-    ag.add_argument("--agent", default="copilot", choices=["copilot", "codex", "all"],
-                    help="Instruction target to write: copilot, codex, or all "
-                         "(default: copilot).")
-    ag.add_argument("--mcp", action="store_true",
-                    help="Also write .vscode/mcp.json for MCP-capable agents.")
-    ag.add_argument("--force", action="store_true",
-                    help="Overwrite .vscode/mcp.json if it already exists.")
-    ag.set_defaults(func=cmd_agent_init)
+    _add_agent_parsers(sub)
 
     bn = sub.add_parser(
         "bench",

@@ -63,6 +63,8 @@ def _format_row(row):
     idpart = " {{{}}}".format(mem_id) if mem_id else ""
     head = "[{}]{}{} {}".format(
         row.get("type"), mark, idpart, row.get("title") or row.get("path"))
+    if row.get("type") == "map":
+        return "{}\n{}".format(head, row.get("content") or "")
     body = " ".join((row.get("content") or "").split())[:300]
     loc = " (@ {})".format(row.get("path")) if row.get("path") and row.get("title") else ""
     return "{}{}\n{}".format(head, loc, body)
