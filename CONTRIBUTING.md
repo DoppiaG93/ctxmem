@@ -59,6 +59,7 @@ Short-lived branches, deleted after merge:
 |--------|-------------|------------|---------|
 | `feature/` | `develop` | `develop` | New features / enhancements |
 | `bugfix/` | `develop` | `develop` | Non-urgent fixes for the next release |
+| `release/` | `develop` | `main` **and** `develop` | Prepare a release (version bump, final polish) |
 | `hotfix/` | `main` | `main` **and** `develop` | Urgent fixes to the released version |
 
 Name branches in lowercase kebab-case, e.g. `feature/recall-json-output`,
@@ -97,21 +98,40 @@ patch release) and `develop` (so it isn't lost).
 
 ## 🚀 Release process
 
-Releases flow from `develop` to `main`:
+Releases use a short-lived `release/*` branch (classic Git Flow): it branches
+from `develop` and merges into **both `main` and `develop`**.
 
 1. Make sure `develop` has everything intended for the release.
-2. Bump the version in [`pyproject.toml`](pyproject.toml) (single source of
-   truth — `ctxmem.__version__` reads it from the installed package metadata).
-3. Open a PR **`develop` → `main`** (e.g. `Release v0.2.0`).
-4. After merge, tag the release on `main`:
+2. Cut a release branch from `develop` and bump the version:
+   ```bash
+   git switch develop && git pull origin develop
+   git switch -c release/1.5.0
+   scripts/release.sh 1.5.0 --no-tag     # bump pyproject.toml + commit (no tag yet)
+   ```
+   Use this branch only for release polish (version bump, changelog, last fixes).
+3. Open a PR **`release/1.5.0` → `main`** and merge it (reviewed).
+4. Tag the release on `main` — pushing the tag triggers the PyPI publish:
    ```bash
    git switch main && git pull origin main
-   git tag -a v0.2.0 -m "ctxmem 0.2.0"
-   git push origin v0.2.0
+   git tag -a v1.5.0 -m "ctxmem 1.5.0"
+   git push origin v1.5.0
+   ```
+5. Back-merge the release into `develop` so it keeps the version bump, then
+   delete the branch:
+   ```bash
+   git switch develop && git merge --no-ff release/1.5.0
+   git push origin develop
    ```
 
-Versioning follows [Semantic Versioning](https://semver.org/); tags are prefixed
-with `v` to match the version in `pyproject.toml`.
+`scripts/release.sh` (maintainer-only, gitignored) automates the bump/commit/tag.
+Inside a `release/*` branch pass `--no-tag` (you tag on `main` in step 4); add
+`--push` to also push and open the GitHub Release.
+
+The version in `pyproject.toml` is the single source of truth
+(`ctxmem.__version__` reads it from the installed package metadata). Versioning
+follows [Semantic Versioning](https://semver.org/); tags are prefixed with `v`
+to match `pyproject.toml`, and the publish workflow verifies they agree before
+uploading to PyPI.
 
 ---
 
