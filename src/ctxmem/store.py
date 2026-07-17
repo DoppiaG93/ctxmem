@@ -24,6 +24,7 @@ MEMORY_DIR = ".ctxmem"
 JSONL_NAME = "memory.jsonl"
 DB_NAME = "index.db"
 CONFIG_NAME = "config.json"
+EMB_CACHE_NAME = "emb_cache.db"
 
 DEFAULT_CONFIG = {
     "mode": "keyword",  # keyword | semantic | hybrid
@@ -39,6 +40,15 @@ def memory_paths(root="."):
 
 def config_path(root="."):
     return os.path.join(root, MEMORY_DIR, CONFIG_NAME)
+
+
+def emb_cache_path(root="."):
+    """Path to the persistent embedding cache (keyed by content hash).
+
+    Like index.db this file is derived and NOT committed; it survives full
+    rebuilds so we only ever call the embedding backend for new/changed text.
+    """
+    return os.path.join(root, MEMORY_DIR, EMB_CACHE_NAME)
 
 
 def load_config(root="."):
