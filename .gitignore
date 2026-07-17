@@ -15,3 +15,4 @@ venv/
 
 # ctxmem: share the memory (memory.jsonl + config.json), ignore the derived index
 .ctxmem/index.db
+.ctxmem/emb_cache.db

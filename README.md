@@ -102,9 +102,13 @@ Two files under `.ctxmem/` in your repo:
 │                  # Append-only, human-readable, one JSON object per line.
 │                  # Holds your decisions / notes / sessions.
 │
-└── index.db       # DERIVED index — gitignored, rebuilt on demand.
-                   # SQLite full-text (FTS5) + optional vector table.
-                   # Holds a searchable copy of memory.jsonl PLUS your code symbols.
+├── index.db       # DERIVED index — gitignored, rebuilt on demand.
+│                  # SQLite full-text (FTS5) + optional vector table.
+│                  # Holds a searchable copy of memory.jsonl PLUS your code symbols.
+│
+└── emb_cache.db   # DERIVED embedding cache — gitignored (semantic mode only).
+                   # Keyed by content hash so a sync only calls the embedding
+                   # backend for genuinely new or edited text.
 ```
 
 Why this split is the whole trick:
@@ -134,7 +138,8 @@ flowchart TD
 
 - **Write:** `remember` appends a JSON line to `memory.jsonl` (and updates the index).
 - **Index:** `sync` rebuilds `index.db` = replay `memory.jsonl` + scan the code for
-  symbols (functions/classes) + optionally compute embeddings.
+  symbols (functions/classes) + optionally compute embeddings. In semantic mode
+  the embeddings are cached by content hash, so only new/changed text is re-embedded.
 - **Read:** `recall` searches the index in the configured mode and returns the best
   matches — the small, relevant slice you (or the agent) actually need.
 
@@ -176,13 +181,15 @@ ctxmem/
 └── .ctxmem/                  # Created by `ctxmem init` in whatever repo you use it in.
     ├── memory.jsonl          # Committed source of truth.
     ├── config.json           # Committed: which search mode + model to use.
-    ├── .gitignore            # Keeps index.db out of git.
-    └── index.db              # Derived, local-only search index.
+    ├── .gitignore            # Keeps index.db + emb_cache.db out of git.
+    ├── index.db              # Derived, local-only search index.
+    └── emb_cache.db          # Derived, local-only embedding cache (semantic mode).
 ```
 
 > Note: this `ctxmem` package repo is the exception: its own `.ctxmem/` is
 > maintainer-local and gitignored. In projects that use `ctxmem`, commit
-> `.ctxmem/memory.jsonl` and `.ctxmem/config.json`; ignore only `.ctxmem/index.db`.
+> `.ctxmem/memory.jsonl` and `.ctxmem/config.json`; ignore the derived
+> `.ctxmem/index.db` and `.ctxmem/emb_cache.db`.
 
 ### The modules in plain words
 
@@ -710,8 +717,9 @@ default. Semantic is opt-in and still in beta.
 automatically; the shared memory still works.
 
 **Does it scale to a big repo?** The keyword index is fine for large repos.
-Embeddings cost one Ollama call per chunk on `sync`; for very large codebases
-incremental (diff-based) indexing is a natural next step.
+Semantic mode is incremental: embeddings are cached on disk by content hash
+(`.ctxmem/emb_cache.db`), so a `sync` only calls Ollama for text that is new or
+changed — unchanged memories and code symbols are served straight from cache.
 
 **Is MCP proprietary?** No. MCP is an open protocol with MIT-licensed SDKs. The
 underlying LLM behind your agent may be proprietary, but the memory and the
