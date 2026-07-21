@@ -233,6 +233,63 @@ def cmd_status(args):
         print("  {:10s} {}".format(row["type"], row["n"]))
 
 
+def cmd_doctor(args):
+    """Check the semantic (Ollama) backend end to end, with fix-it hints."""
+    cfg = store.load_config(args.root)
+    url = cfg.get("ollama_url", embeddings.DEFAULT_URL)
+    model = cfg.get("embed_model", embeddings.DEFAULT_MODEL)
+    state = {"ok": True}
+
+    def check(label, passed, hint=""):
+        print("[{}] {}".format("OK  " if passed else "FAIL", label))
+        if not passed:
+            state["ok"] = False
+            if hint:
+                print("       -> {}".format(hint))
+
+    print("ctxmem doctor - semantic backend check")
+    print("  mode  : {}".format(cfg["mode"]))
+    print("  ollama: {}".format(url))
+    print("  model : {}".format(model))
+    print()
+
+    check("sqlite3 has FTS5 (keyword search)", store.fts5_available(),
+          "your Python's sqlite3 lacks FTS5; keyword search won't work.")
+
+    has_vec = embeddings.sqlite_vec_available()
+    check("sqlite-vec installed (vector search)", has_vec,
+          "pip install \"ctxmem[semantic]\"")
+
+    reachable = embeddings.ollama_available(cfg)
+    check("Ollama reachable at {}".format(url), reachable,
+          "start it: 'cd ollama && task start' (Lima VM) or 'ollama serve'.")
+
+    models = embeddings.installed_models(cfg) if reachable else []
+    has_model = any(
+        m == model or m.split(":")[0] == model.split(":")[0] for m in models)
+    check("embedding model '{}' pulled".format(model), reachable and has_model,
+          "pull it: 'cd ollama && task pull MODEL={0}' or 'ollama pull {0}'."
+          .format(model))
+
+    if has_vec and reachable and has_model:
+        try:
+            vec = embeddings.embed("ctxmem doctor connectivity test", cfg)
+            check("live embedding call ({} dims)".format(len(vec)), bool(vec),
+                  "the model returned an empty vector.")
+        except Exception as exc:  # noqa: BLE001 - report any backend failure
+            check("live embedding call", False, "embed failed: {}".format(exc))
+    else:
+        check("live embedding call", False, "skipped until the above pass.")
+
+    print()
+    if state["ok"]:
+        print("Semantic backend READY. Turn it on with 'ctxmem mode semantic'.")
+    else:
+        print("Semantic backend NOT READY - keyword search still works "
+              "(recall falls back automatically).")
+    sys.exit(0 if state["ok"] else 1)
+
+
 HOOK_MARKER = "# ctxmem post-commit hook"
 
 
@@ -773,6 +830,11 @@ def build_parser():
 
     st = sub.add_parser("status", help="Show what is indexed.")
     st.set_defaults(func=cmd_status)
+
+    dr = sub.add_parser(
+        "doctor",
+        help="Check the semantic (Ollama) backend end to end, with fix hints.")
+    dr.set_defaults(func=cmd_doctor)
 
     hk = sub.add_parser("hook", help="Install/uninstall the git post-commit hook.")
     hk.add_argument("action", choices=["install", "uninstall"])
