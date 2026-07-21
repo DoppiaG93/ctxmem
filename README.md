@@ -1,7 +1,7 @@
 <div align="center">
 
 <p align="center">
-  <img src="assets/banner.png" alt="ctxmem banner" width="100%">
+  <img src="https://raw.githubusercontent.com/DoppiaG93/ctxmem/main/assets/banner.png" alt="ctxmem banner" width="100%">
 </p>
 
 # ctxmem
@@ -36,7 +36,7 @@ so nothing is forgotten when a chat exceeds the model's context window.
   (local embeddings, no cloud).
 
 <p align="center">
-  <img src="assets/demo.svg" alt="ctxmem demo: init, remember, sync, recall" width="90%">
+  <img src="https://raw.githubusercontent.com/DoppiaG93/ctxmem/main/assets/demo.svg" alt="ctxmem demo: init, remember, sync, recall" width="90%">
 </p>
 
 > **How it works, in one line:** a committed, human-readable `memory.jsonl` is the
