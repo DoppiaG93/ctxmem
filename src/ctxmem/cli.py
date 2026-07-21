@@ -51,7 +51,6 @@ def cmd_init(args):
         f.write("index.db\n")
     print("Initialized memory at {} (mode: {})".format(base, args.mode))
     if args.mode != "keyword":
-        print("[beta] semantic/hybrid search is experimental and under active testing.")
         if not embeddings.available(cfg):
             print("[warn] semantic backend not ready (need 'pip install \"ctxmem[semantic]\"' "
                   "+ a running Ollama). recall will fall back to keyword until then.")
@@ -72,7 +71,6 @@ def cmd_mode(args):
     store.save_config(root, cfg)
     print("mode set to {}".format(args.value))
     if args.value != "keyword":
-        print("[beta] semantic/hybrid search is experimental and under active testing.")
         if not embeddings.available(cfg):
             print("[warn] semantic backend not available yet; recall falls back to keyword.")
 
@@ -791,12 +789,12 @@ def build_parser():
 
     ini = sub.add_parser("init", help="Initialize memory in this repo.")
     ini.add_argument("--mode", default="keyword", choices=MODES,
-                     help="Search mode (default: keyword; semantic/hybrid are beta).")
+                     help="Search mode (default: keyword; also semantic/hybrid).")
     ini.set_defaults(func=cmd_init)
 
     md = sub.add_parser("mode", help="Show or change the search mode.")
     md.add_argument("value", nargs="?", choices=MODES,
-                    help="New mode (omit to show; semantic/hybrid are beta).")
+                    help="New mode (omit to show; keyword/semantic/hybrid).")
     md.set_defaults(func=cmd_mode)
 
     r = sub.add_parser("remember", help="Store a decision/note/session.")

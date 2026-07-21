@@ -68,8 +68,8 @@ body:
       label: Search mode
       options:
         - keyword
-        - semantic (beta)
-        - hybrid (beta)
+        - semantic
+        - hybrid
     validations:
       required: false
 

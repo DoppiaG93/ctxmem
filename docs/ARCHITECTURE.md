@@ -56,8 +56,8 @@ flowchart TD
     D --> E
     A -->|ctxmem recall query| F{search mode}
     F -->|keyword| G[FTS5 full-text]
-    F -->|semantic 🧪| H[Ollama embed + sqlite-vec KNN]
-    F -->|hybrid 🧪| I[merge both]
+    F -->|semantic| H[Ollama embed + sqlite-vec KNN]
+    F -->|hybrid| I[merge both]
     G --> E
     H --> E
     I --> E
@@ -90,7 +90,7 @@ ctxmem/
 │   │                         #   (functions/classes) into searchable chunks.
 │   ├── codemap.py            # Builds a structure + Python import map of the repo
 │   │                         #   for `ctxmem map` (reuses indexer filters + ast).
-│   ├── embeddings.py         # 🧪 beta: talks to Ollama for embeddings and to
+│   ├── embeddings.py         # talks to Ollama for embeddings and to
 │   │                         #   sqlite-vec for vector KNN search.
 │   ├── retrieval.py          # The brain: rebuilds the index and dispatches a query
 │   │                         #   to keyword / semantic / hybrid (with auto-fallback).
@@ -102,7 +102,7 @@ ctxmem/
 │   ├── sample_app.py         # A tiny module so there is real code to index/recall.
 │   └── bench/                # A sample generated benchmark report + charts.
 │
-├── ollama/                   # 🧪 beta: run the semantic backend in an isolated VM.
+├── ollama/                   # run the semantic backend in an isolated VM.
 │   ├── lima.yaml             # Lima VM: Ubuntu + Ollama + the embedding model.
 │   └── Taskfile.yaml         # `task requirements/enable/start/stop/status/demo` helpers.
 │
@@ -127,7 +127,7 @@ ctxmem/
 | `store.py` | Read/write files + SQLite. Defines the FTS5 table. | `memory_paths`, `load_config`, `init_schema`, `insert_row`, `append_jsonl`, `search` |
 | `indexer.py` | Turn code files into searchable symbol chunks. | `extract_symbols`, `index_code` |
 | `codemap.py` | Build a structure + Python import map for `ctxmem map`. | `build_map` |
-| `embeddings.py` 🧪 | Beta: local embeddings (Ollama) + vector KNN (sqlite-vec). | `available`, `embed`, `build`, `search`, `installed_models` |
+| `embeddings.py` | Local embeddings (Ollama) + vector KNN (sqlite-vec). | `available`, `embed`, `build`, `search`, `installed_models` |
 | `retrieval.py` | Rebuild the index; pick keyword/semantic/hybrid; fallback. | `rebuild`, `get_conn`, `search` |
 | `bench.py` | Measure token / request savings; render SVG charts. | `count_tokens`, `baseline_text`, `svg_grouped_bars` |
 | `cli.py` | The user-facing commands. | one `cmd_*` per subcommand |
@@ -142,19 +142,18 @@ front-ends.
 | Mode | Finds results by | Needs | Speed | Default |
 |------|------------------|-------|-------|---------|
 | `keyword` | matching **words** (SQLite FTS5) | nothing | instant | ✅ |
-| `semantic` 🧪 | matching **meaning** (embeddings) | sqlite-vec + Ollama | a bit slower | — |
-| `hybrid` 🧪 | both, results merged | sqlite-vec + Ollama | a bit slower | — |
+| `semantic` | matching **meaning** (embeddings) | sqlite-vec + Ollama | a bit slower | — |
+| `hybrid` | both, results merged | sqlite-vec + Ollama | a bit slower | — |
 
-> 🧪 **`semantic` and `hybrid` are beta** — the local-embedding backend is
-> experimental and under active testing. `keyword` mode is stable and needs no
-> setup. If the semantic backend isn't available, ctxmem **automatically falls
-> back to keyword** and tells you (`[keyword (fallback)]`).
+> `keyword` mode is the zero-setup default and needs no external services. If the
+> semantic backend isn't available, ctxmem **automatically falls back to keyword**
+> and tells you (`[keyword (fallback)]`).
 
 - **keyword**: great, zero-setup baseline. Searching `"login"` won't find a note
   that only says `"authentication"`.
-- **semantic** 🧪: understands meaning, so `"login"` *does* find `"authentication"`.
+- **semantic**: understands meaning, so `"login"` *does* find `"authentication"`.
   Uses a local embedding model — no cloud.
-- **hybrid** 🧪: runs both and merges — best recall.
+- **hybrid**: runs both and merges — best recall.
 
 The mode is stored in `.ctxmem/config.json` (so it's shared).
 

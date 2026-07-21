@@ -296,11 +296,7 @@ Tools exposed to the agent:
 (injecting only the relevant snippets, staying well under the token limit) and
 `remember` at the end — so the project's memory grows and persists across sessions.
 
-## Semantic backend with Ollama (beta)
-
-> ⚠️ **Beta / experimental.** Semantic search works but is under active testing.
-> Keyword mode remains the stable default. Expect the semantic setup and defaults
-> to evolve in a future release.
+## Semantic backend with Ollama
 
 Semantic search needs two open-source, fully-local pieces:
 

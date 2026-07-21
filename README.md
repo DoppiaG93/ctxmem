@@ -32,8 +32,8 @@ so nothing is forgotten when a chat exceeds the model's context window.
   colleague pulls, they get *your exact context*. Branch-aware for free.
 - 📦 **Works as a git package** — `pip install git+https://…`, zero required deps.
 - 🔒 **Fully local** — SQLite files in your repo. No cloud, no API keys, no servers.
-- 🔍 **Search modes** — `keyword` (built-in) plus `semantic` / `hybrid` (🧪 **beta**,
-  local embeddings).
+- 🔍 **Search modes** — `keyword` (built-in, default) plus `semantic` / `hybrid`
+  (local embeddings, no cloud).
 
 <p align="center">
   <img src="assets/demo.svg" alt="ctxmem demo: init, remember, sync, recall" width="90%">
@@ -53,7 +53,7 @@ pip install "git+https://github.com/DoppiaG93/ctxmem.git"   # as a git package
 
 # optional extras
 pip install "ctxmem[mcp]"        # AI-agent server (MCP)
-pip install "ctxmem[semantic]"   # 🧪 beta semantic search (needs Ollama too)
+pip install "ctxmem[semantic]"   # semantic search (needs Ollama too)
 pip install "ctxmem[all]"        # everything
 ```
 
@@ -98,7 +98,7 @@ memory to a teammate), see **[docs/GUIDE.md](docs/GUIDE.md)**.
 | `ctxmem ask "question" [--limit --type --mode]` | Recall **plus a verdict**: `HIT` / `WEAK` / `MISS`. Use it to check memory *before* answering. |
 | `ctxmem sync` | Rebuild `index.db` from `memory.jsonl` + code (+ embeddings if enabled). |
 | `ctxmem map` | Save a **structure + Python import map** into memory (`--type map`). Great first step so agents know the layout. |
-| `ctxmem mode [M]` | Show, or switch to, `keyword` / `semantic` 🧪 / `hybrid` 🧪. |
+| `ctxmem mode [M]` | Show, or switch to, `keyword` / `semantic` / `hybrid`. |
 | `ctxmem log [--limit]` | List recent memories. |
 | `ctxmem status` | Branch/commit, mode, and counts of indexed items. |
 | `ctxmem doctor` | Check the semantic (Ollama) backend end to end, with fix-it hints. |
@@ -122,10 +122,10 @@ a task, `remember` decisions, and `sync` after changing code — so the memory g
 by itself. Full details (CLI vs MCP, requirements, tips) in
 **[docs/GUIDE.md → Use it from an AI agent](docs/GUIDE.md#use-it-from-an-ai-agent)**.
 
-## Semantic search (Ollama, beta)
+## Semantic search (Ollama)
 
-Keyword mode is the stable, zero-setup default. Optional 🧪 **beta** semantic and
-hybrid modes match by *meaning* using a fully-local embedding model:
+Keyword mode is the stable, zero-setup default. Optional semantic and hybrid
+modes match by *meaning* using a fully-local embedding model:
 
 ```bash
 pip install "ctxmem[semantic]"
@@ -140,7 +140,7 @@ cd ollama && task enable             # brings the VM up + switches to semantic
 
 If the backend isn't available, ctxmem **automatically falls back to keyword**.
 Setup options, the Lima VM, and `ctxmem doctor` output are documented in
-**[docs/GUIDE.md → Semantic backend](docs/GUIDE.md#semantic-backend-with-ollama-beta)**.
+**[docs/GUIDE.md → Semantic backend](docs/GUIDE.md#semantic-backend-with-ollama)**.
 
 ## Why it saves tokens
 
@@ -165,10 +165,10 @@ Full methodology and reproducible steps:
 ## FAQ
 
 **Is my data sent anywhere?** No. Everything is local: SQLite files in your repo
-and, if you enable the beta semantic mode, a local Ollama.
+and, if you enable semantic mode, a local Ollama.
 
 **Do I have to use embeddings?** No. `keyword` mode needs nothing and is the
-default. Semantic is opt-in and still in beta.
+default. Semantic is opt-in.
 
 **Should I commit `index.db`?** No — it's derived and gitignored. Commit
 `memory.jsonl` and `config.json`.
