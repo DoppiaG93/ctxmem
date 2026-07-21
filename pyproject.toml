@@ -16,7 +16,7 @@ Issues = "https://github.com/DoppiaG93/ctxmem/issues"
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.2.0"]
-# Semantic/hybrid search is beta (experimental, under active testing).
+# Semantic/hybrid search: local embeddings via sqlite-vec (needs Ollama too).
 semantic = ["sqlite-vec>=0.1.0"]
 bench = ["tiktoken>=0.5.0"]
 test = ["pytest>=7.4,<9.2"]

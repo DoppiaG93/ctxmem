@@ -1,6 +1,8 @@
 version: '3'
 
 # Manage the Ollama Lima VM that powers ctxmem's semantic backend.
+#   task requirements check that Lima (limactl) is installed
+#   task enable       one command: bring the VM up + switch ctxmem to semantic
 #   task start        create/start the VM (installs Ollama + pulls the model)
 #   task status       check the local Ollama endpoint
 #   task pull MODEL=  pull another model inside the VM
@@ -9,8 +11,36 @@ version: '3'
 #   task demo         switch ctxmem to semantic and run a sample query
 
 tasks:
+  requirements:
+    desc: Check that Lima (limactl) is installed; print install help if not.
+    silent: true
+    cmds:
+      - |
+        if command -v limactl >/dev/null 2>&1; then
+          echo "OK: $(limactl --version 2>/dev/null | head -n1)"
+        else
+          echo "MISSING: limactl (Lima) is not installed."
+          echo
+          echo "Install Lima, then re-run 'task start':"
+          echo "  macOS / Linux (Homebrew): brew install lima"
+          echo "  Linux (manual):           https://github.com/lima-vm/lima/releases"
+          echo
+          echo "No Lima? You can instead run Ollama on the host:"
+          echo "  install from https://ollama.com, then: ollama serve && ollama pull nomic-embed-text"
+          exit 1
+        fi
+
+  enable:
+    desc: One command - ensure the Ollama VM is up and switch ctxmem to semantic.
+    dir: ..
+    cmds:
+      - task: start
+      - ctxmem mode semantic
+      - ctxmem doctor
+
   start:
     desc: Create/start the Ollama VM (idempotent).
+    deps: [requirements]
     cmds:
       - limactl start --name=ollama ./lima.yaml
 

@@ -48,6 +48,18 @@ def ollama_available(cfg):
         return False
 
 
+def installed_models(cfg):
+    """Names of models available on the Ollama endpoint (empty on failure)."""
+    url = cfg.get("ollama_url", DEFAULT_URL).rstrip("/") + "/api/tags"
+    try:
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            payload = json.loads(resp.read())
+    except Exception:
+        return []
+    return [m.get("name", "") for m in payload.get("models", [])]
+
+
+
 def available(cfg):
     return sqlite_vec_available() and ollama_available(cfg)
 

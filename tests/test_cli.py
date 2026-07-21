@@ -3,7 +3,7 @@ from contextlib import redirect_stdout
 
 import pytest
 
-from ctxmem import cli, store
+from ctxmem import cli, embeddings, store
 
 
 pytestmark = pytest.mark.skipif(
@@ -149,3 +149,43 @@ def test_cli_update_instructions_without_files_hints_agent_init(tmp_path):
 
     out = run_cli(["--root", str(tmp_path), "update-instructions"])
     assert "Run 'ctxmem agent-init' first" in out
+
+
+def _run_doctor(tmp_path):
+    stdout = io.StringIO()
+    code = 0
+    with redirect_stdout(stdout):
+        try:
+            cli.main(["--root", str(tmp_path), "doctor"])
+        except SystemExit as exc:
+            code = exc.code
+    return code, stdout.getvalue()
+
+
+def test_cli_doctor_reports_not_ready_without_backend(tmp_path, monkeypatch):
+    run_cli(["--root", str(tmp_path), "init"])
+    monkeypatch.setattr(embeddings, "ollama_available", lambda cfg: False)
+    monkeypatch.setattr(embeddings, "installed_models", lambda cfg: [])
+
+    code, out = _run_doctor(tmp_path)
+
+    assert code == 1
+    assert "NOT READY" in out
+    assert "Ollama reachable" in out
+    assert "task start" in out  # actionable hint is shown
+
+
+def test_cli_doctor_reports_ready_when_backend_ok(tmp_path, monkeypatch):
+    run_cli(["--root", str(tmp_path), "init"])
+    monkeypatch.setattr(embeddings, "sqlite_vec_available", lambda: True)
+    monkeypatch.setattr(embeddings, "ollama_available", lambda cfg: True)
+    monkeypatch.setattr(
+        embeddings, "installed_models", lambda cfg: ["nomic-embed-text:latest"])
+    monkeypatch.setattr(embeddings, "embed", lambda text, cfg: [0.1] * 8)
+
+    code, out = _run_doctor(tmp_path)
+
+    assert code == 0
+    assert "READY" in out
+    assert "NOT READY" not in out
+    assert "live embedding call (8 dims)" in out
