@@ -33,7 +33,7 @@ def rebuild(root, verbose=False):
     emb_rows = 0
     if cfg["mode"] in ("semantic", "hybrid"):
         if embeddings.available(cfg):
-            emb_rows = embeddings.build(conn, cfg)
+            emb_rows = embeddings.build(conn, cfg, store.emb_cache_path(root))
         elif verbose:
             print("[warn] mode '{}' needs sqlite-vec + Ollama; "
                   "falling back to keyword.".format(cfg["mode"]))
@@ -117,7 +117,7 @@ def search(conn, query, root, limit=10, type_filter=None, mode_override=None):
         return finish(keyword(), "keyword (fallback)")
 
     if not embeddings.index_fresh(conn):
-        embeddings.build(conn, cfg)
+        embeddings.build(conn, cfg, store.emb_cache_path(root))
 
     semantic = embeddings.search(conn, query, cfg, limit, type_filter)
     if mode == "semantic":

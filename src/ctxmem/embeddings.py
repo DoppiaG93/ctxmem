@@ -8,15 +8,31 @@ Both are open source and run entirely on your machine:
 
 Everything here is optional: if the extra isn't installed or Ollama isn't running,
 callers fall back to keyword (FTS5) search.
+
+Embeddings are cached on disk (`.ctxmem/emb_cache.db`, keyed by content hash)
+so a rebuild only calls the backend for genuinely new or edited text — the
+vector tables themselves are cheap to recreate locally.
 """
 
 import json
+import hashlib
 import importlib.util
+import sqlite3
 import urllib.error
 import urllib.request
 
 DEFAULT_MODEL = "nomic-embed-text"
 DEFAULT_URL = "http://localhost:11434"
+
+
+def text_hash(text):
+    """Stable content key used to cache and diff embeddings across rebuilds."""
+    return hashlib.sha256((text or "").strip().encode("utf-8")).hexdigest()
+
+
+def _text_of(row):
+    return (row["content"] or row["title"] or "").strip()
+
 
 
 def sqlite_vec_available():
@@ -30,6 +46,18 @@ def ollama_available(cfg):
             return resp.status == 200
     except Exception:
         return False
+
+
+def installed_models(cfg):
+    """Names of models available on the Ollama endpoint (empty on failure)."""
+    url = cfg.get("ollama_url", DEFAULT_URL).rstrip("/") + "/api/tags"
+    try:
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            payload = json.loads(resp.read())
+    except Exception:
+        return []
+    return [m.get("name", "") for m in payload.get("models", [])]
+
 
 
 def available(cfg):
@@ -57,21 +85,51 @@ def embed(text, cfg):
 
 
 def index_fresh(conn):
-    """True if the vector index exists and covers every mem row."""
+    """True if emb_meta already reflects the current mem rows by content.
+
+    We compare the *set of content hashes* rather than just row counts, so a
+    change that keeps the row count constant (e.g. a supersede that rewrites a
+    record's content) still forces a rebuild. A missing content_hash column
+    means an index.db from an older ctxmem, which is treated as not fresh so it
+    gets rebuilt with the current schema.
+    """
     try:
         has = conn.execute(
             "SELECT name FROM sqlite_master WHERE name='vec_mem'").fetchone()
         if not has:
             return False
-        n_emb = conn.execute("SELECT COUNT(*) FROM emb_meta").fetchone()[0]
-        n_mem = conn.execute("SELECT COUNT(*) FROM mem").fetchone()[0]
-        return n_emb == n_mem and n_emb > 0
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(emb_meta)")]
+        if "content_hash" not in cols:
+            return False
+        emb_hashes = [r[0] for r in conn.execute(
+            "SELECT content_hash FROM emb_meta")]
+        if not emb_hashes:
+            return False
+        mem_hashes = [
+            text_hash(_text_of(r))
+            for r in conn.execute("SELECT content, title FROM mem")
+        ]
+        return sorted(emb_hashes) == sorted(mem_hashes)
     except Exception:
         return False
 
 
-def build(conn, cfg):
-    """Embed every indexed row and (re)create the vector tables."""
+def _open_cache(cache_path):
+    """Open (creating if needed) the persistent content-hash embedding cache."""
+    conn = sqlite3.connect(cache_path)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS emb_cache "
+        "(hash TEXT PRIMARY KEY, dim INTEGER, vec BLOB)")
+    return conn
+
+
+def build(conn, cfg, cache_path=None):
+    """(Re)create the vector tables, embedding only new/changed content.
+
+    vec_mem/emb_meta are always rebuilt (cheap, local), but the expensive
+    embedding calls are served from a persistent cache keyed by content hash.
+    On a normal sync only genuinely new or edited rows hit the backend.
+    """
     import sqlite_vec
     load_extension(conn)
 
@@ -80,11 +138,31 @@ def build(conn, cfg):
     if not rows:
         return 0
 
-    def text_of(row):
-        return (row["content"] or row["title"] or "").strip()
+    cache = _open_cache(cache_path) if cache_path else None
 
-    first = embed(text_of(rows[0]), cfg)
-    dim = len(first)
+    prepared = []  # (row, content_hash, serialized_vec)
+    dim = None
+    for row in rows:
+        h = text_hash(_text_of(row))
+        blob = None
+        if cache is not None:
+            hit = cache.execute(
+                "SELECT dim, vec FROM emb_cache WHERE hash=?", (h,)).fetchone()
+            if hit:
+                dim, blob = hit[0], hit[1]
+        if blob is None:
+            vec = embed(_text_of(row), cfg)
+            dim = len(vec)
+            blob = sqlite_vec.serialize_float32(vec)
+            if cache is not None:
+                cache.execute(
+                    "INSERT OR REPLACE INTO emb_cache(hash, dim, vec) "
+                    "VALUES (?,?,?)", (h, dim, blob))
+        prepared.append((row, h, blob))
+
+    if cache is not None:
+        cache.commit()
+        cache.close()
 
     conn.execute("DROP TABLE IF EXISTS vec_mem")
     conn.execute(
@@ -93,22 +171,20 @@ def build(conn, cfg):
     conn.execute(
         "CREATE TABLE emb_meta "
         "(id INTEGER PRIMARY KEY, mem_id TEXT, type TEXT, path TEXT, "
-        "title TEXT, content TEXT)")
+        "title TEXT, content TEXT, content_hash TEXT)")
 
-    def insert(i, vec, row):
+    for i, (row, h, blob) in enumerate(prepared, start=1):
         conn.execute(
-            "INSERT INTO vec_mem(rowid, embedding) VALUES (?, ?)",
-            (i, sqlite_vec.serialize_float32(vec)))
+            "INSERT INTO vec_mem(rowid, embedding) VALUES (?, ?)", (i, blob))
         conn.execute(
-            "INSERT INTO emb_meta(id, mem_id, type, path, title, content) "
-            "VALUES (?,?,?,?,?,?)",
-            (i, row["mem_id"], row["type"], row["path"], row["title"], row["content"]))
-
-    insert(1, first, rows[0])
-    for i, row in enumerate(rows[1:], start=2):
-        insert(i, embed(text_of(row), cfg), row)
+            "INSERT INTO emb_meta"
+            "(id, mem_id, type, path, title, content, content_hash) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (i, row["mem_id"], row["type"], row["path"], row["title"],
+             row["content"], h))
     conn.commit()
-    return len(rows)
+    return len(prepared)
+
 
 
 def search(conn, query, cfg, limit=8, type_filter=None):

@@ -43,7 +43,7 @@ reports:
 - **MCP server.** `ctxmem mcp` exposes `recall`/`remember` over stdio to a local
   agent only. It reads and writes the current repository's `.ctxmem/` directory
   and does not open any network socket.
-- **Semantic backend (beta).** The optional embeddings path talks only to a
+- **Semantic backend.** The optional embeddings path talks only to a
   local Ollama endpoint you configure and run yourself, and can load the
   `sqlite-vec` extension into SQLite. No embeddings or memory content leave your
   machine.

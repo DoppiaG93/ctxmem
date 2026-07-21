@@ -15,8 +15,4 @@ venv/
 
 # ctxmem: share the memory (memory.jsonl + config.json), ignore the derived index
 .ctxmem/index.db
-
-# Maintainer-only demo generation scripts (kept local, not shipped in the repo)
-scripts/
-
-AGENTS.md
+.ctxmem/emb_cache.db
