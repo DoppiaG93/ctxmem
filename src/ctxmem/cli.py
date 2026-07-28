@@ -137,31 +137,6 @@ def _print_row(row):
         print("      {}".format(snippet[:160]))
 
 
-def _verdict(rows):
-    """Classify a result set so an agent can decide if memory already knows.
-
-    HIT  -> memory holds at least one active (non-superseded) decision/note.
-    WEAK -> only related code symbols, or every memory match is superseded.
-    MISS -> nothing matched.
-    """
-    if not rows:
-        return "MISS", "memory has nothing on this; answer fresh, then remember it."
-    active_mem = [r for r in rows
-                  if r.get("type") != "symbol" and not r.get("_superseded")]
-    if active_mem:
-        kinds = {}
-        for r in active_mem:
-            kinds[r.get("type", "note")] = kinds.get(r.get("type", "note"), 0) + 1
-        summary = ", ".join(
-            "{} {}{}".format(n, k, "" if n == 1 else "s") for k, n in kinds.items())
-        note = ""
-        if any(r.get("_stale") for r in active_mem):
-            note = " (some records look stale \u2014 verify against the code)"
-        return "HIT", "memory has {}{}.".format(summary, note)
-    return "WEAK", ("no stored decision \u2014 only related code/superseded notes; "
-                    "verify and consider remembering.")
-
-
 def cmd_recall(args):
     root = args.root
     conn = retrieval.get_conn(root)
@@ -186,8 +161,8 @@ def cmd_ask(args):
     rows, used = retrieval.search(
         conn, args.query, root, limit=args.limit,
         type_filter=args.type, mode_override=args.mode)
-    verdict, detail = _verdict(rows)
-    print("VERDICT: {} \u2014 {}".format(verdict, detail))
+    label, detail = retrieval.verdict(rows, args.query)
+    print("VERDICT: {} \u2014 {}".format(label, detail))
     if not rows:
         return
     print("Top {} results for '{}' [{}]:".format(len(rows), args.query, used))

@@ -3,7 +3,7 @@ from contextlib import redirect_stdout
 
 import pytest
 
-from ctxmem import cli, embeddings, store
+from ctxmem import cli, embeddings, retrieval, store
 
 
 pytestmark = pytest.mark.skipif(
@@ -93,10 +93,78 @@ def test_cli_ask_reports_hit_weak_and_miss(tmp_path):
 
     hit = run_cli(["--root", str(tmp_path), "ask", "stable keyword default"])
     assert "VERDICT: HIT" in hit
-    assert "1 decision" in hit
+    assert "best answer memory is active decision 'Use keyword mode'" in hit
 
     miss = run_cli(["--root", str(tmp_path), "ask", "completely unrelated zxqw"])
     assert "VERDICT: MISS" in miss
+
+
+def test_cli_ask_reports_weak_when_code_ranks_above_related_memory(tmp_path):
+    run_cli(["--root", str(tmp_path), "init"])
+    run_cli([
+        "--root", str(tmp_path), "remember", "--type", "note",
+        "--title", "Ask behavior",
+        "Ask returns a verdict.",
+    ])
+    (tmp_path / "verdict.py").write_text(
+        "def improve_ask_verdict_false_positive_ranking_symbols():\n"
+        "    return 'improve ask verdict false positive ranking symbols'\n",
+        encoding="utf-8",
+    )
+    run_cli(["--root", str(tmp_path), "sync"])
+
+    out = run_cli([
+        "--root", str(tmp_path), "ask",
+        "improve ask verdict false positive ranking symbols",
+    ])
+
+    assert "VERDICT: WEAK" in out
+    assert "closest match is code; related memories rank lower" in out
+
+
+def test_verdict_treats_codebase_map_as_weak():
+    label, detail = retrieval.verdict([{
+        "type": "map",
+        "title": "Codebase map",
+        "content": "Project structure",
+    }])
+
+    assert label == "WEAK"
+    assert "closest match is a codebase map" in detail
+
+
+def test_verdict_rejects_generic_keyword_memory_match():
+    label, detail = retrieval.verdict([{
+        "type": "decision",
+        "title": "Release workflow",
+        "content": "Publish releases to PyPI from the main branch.",
+        "tags": "release",
+        "score": -1.0,
+    }], "what is the next improvement for semantic recall quality")
+
+    assert label == "WEAK"
+    assert "matches too little of the question" in detail
+
+
+def test_verdict_does_not_let_code_outrank_a_strong_answer_memory():
+    label, detail = retrieval.verdict([
+        {
+            "type": "symbol",
+            "title": "release_workflow",
+            "content": "def release_workflow(): publish_to_pypi()",
+            "score": -4.0,
+        },
+        {
+            "type": "decision",
+            "title": "Release workflow",
+            "content": "The release workflow publishes to PyPI.",
+            "tags": "release",
+            "score": -2.0,
+        },
+    ], "release workflow PyPI")
+
+    assert label == "HIT"
+    assert "best answer memory is active decision 'Release workflow'" in detail
 
 
 def test_cli_map_saves_structure_into_memory(tmp_path):

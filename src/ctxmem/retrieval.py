@@ -7,9 +7,85 @@ Shared by both the CLI and the MCP server.
 """
 
 import os
+import re
 
 from . import embeddings, gitinfo, store
 from .indexer import index_code
+
+
+ANSWER_MEMORY_TYPES = {"decision", "note", "session", "todo"}
+QUESTION_WORDS = {
+    "about", "and", "are", "come", "cosa", "del", "della", "delle", "degli",
+    "dei", "deve", "di", "do", "does", "for", "how", "il", "improve",
+    "improvement", "in", "is", "la", "le", "lo", "miglioramento", "migliorare",
+    "must", "next", "of", "per", "progetto", "project", "prossimo", "qual",
+    "quale", "quando", "restituire", "return", "should", "step", "the", "to",
+    "un", "una", "what", "when", "which",
+}
+
+
+def _meaningful_tokens(text):
+    return {
+        token for token in re.findall(r"\w+", (text or "").lower())
+        if len(token) >= 3 and token not in QUESTION_WORDS
+    }
+
+
+def _keyword_match_is_strong(row, query):
+    """Require a keyword HIT to cover at least half the meaningful question."""
+    if "score" not in row or query is None:
+        return True
+    query_tokens = _meaningful_tokens(query)
+    if not query_tokens:
+        return False
+    record_text = " ".join([
+        row.get("title") or "",
+        row.get("content") or "",
+        row.get("tags") or "",
+    ])
+    overlap = query_tokens & _meaningful_tokens(record_text)
+    return bool(overlap) and len(overlap) / len(query_tokens) >= 0.5
+
+
+def verdict(rows, query=None):
+    """Classify ranked search results for ``ask``.
+
+    Code and maps are supporting context, so they do not outrank an explicit
+    answer memory for verdict purposes. Keyword answer memories still need
+    enough lexical overlap to avoid false HITs from generic matches.
+    """
+    if not rows:
+        return "MISS", "memory has nothing on this; answer fresh, then remember it."
+
+    active_mem = [
+        row for row in rows
+        if row.get("type") in ANSWER_MEMORY_TYPES and not row.get("_superseded")
+    ]
+    answer = next(
+        (row for row in active_mem if _keyword_match_is_strong(row, query)),
+        None,
+    )
+    if answer:
+        kind = answer.get("type")
+        title = answer.get("title") or (answer.get("content") or "")[:60]
+        stale = " (it looks stale — verify against the code)" if answer.get("_stale") else ""
+        return "HIT", "best answer memory is active {} '{}'{}.".format(kind, title, stale)
+
+    top = rows[0]
+    top_type = top.get("type")
+    if top_type == "symbol":
+        reason = "the closest match is code"
+    elif top_type == "map":
+        reason = "the closest match is a codebase map"
+    elif top.get("_superseded"):
+        reason = "the closest memory is superseded"
+    elif active_mem:
+        reason = "the closest memory matches too little of the question"
+    else:
+        reason = "the closest result is not an answer memory"
+    if active_mem:
+        reason += "; related memories rank lower"
+    return "WEAK", "{}; verify and consider remembering.".format(reason)
 
 
 def rebuild(root, verbose=False):
