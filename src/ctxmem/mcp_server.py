@@ -70,24 +70,6 @@ def _format_row(row):
     return "{}{}\n{}".format(head, loc, body)
 
 
-def _verdict(rows):
-    if not rows:
-        return "MISS", "memory has nothing on this; answer fresh, then remember it."
-    active = [r for r in rows
-              if r.get("type") != "symbol" and not r.get("_superseded")]
-    if active:
-        kinds = {}
-        for r in active:
-            kinds[r.get("type", "note")] = kinds.get(r.get("type", "note"), 0) + 1
-        summary = ", ".join(
-            "{} {}{}".format(n, k, "" if n == 1 else "s") for k, n in kinds.items())
-        note = " (some records look stale \u2014 verify against the code)" \
-            if any(r.get("_stale") for r in active) else ""
-        return "HIT", "memory has {}{}.".format(summary, note)
-    return "WEAK", ("no stored decision \u2014 only related code/superseded notes; "
-                    "verify and consider remembering.")
-
-
 @mcp.tool()
 def ask(query: str, limit: int = 8, type: Optional[str] = None,
         mode: Optional[str] = None) -> str:
@@ -101,7 +83,7 @@ def ask(query: str, limit: int = 8, type: Optional[str] = None,
         return "No memory initialized. Run 'ctxmem init' in the repo first."
     rows, used = retrieval.search(
         conn, query, ROOT, limit=limit, type_filter=type, mode_override=mode)
-    label, detail = _verdict(rows)
+    label, detail = retrieval.verdict(rows, query)
     out = ["VERDICT: {} \u2014 {}".format(label, detail), "(mode: {})".format(used)]
     for row in rows:
         out.append(_format_row(row))
