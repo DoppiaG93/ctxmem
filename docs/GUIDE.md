@@ -287,7 +287,10 @@ Register it (VS Code `.vscode/mcp.json`, also created by `agent-init --mcp`):
 Tools exposed to the agent:
 
 - `recall(query, limit, type, mode)` — pull relevant context before a task.
-- `ask(query, limit, type, mode)` — recall **plus** a `HIT` / `WEAK` / `MISS` verdict.
+- `ask(query, limit, type, mode)` — recall plus a ranked verdict: `HIT` for a
+  relevant active answer memory (code and maps do not outrank explicit memory),
+  `WEAK` for related code, maps, or low-overlap keyword matches, and `MISS` when
+  nothing matches.
 - `remember(content, type, title, tags, supersedes)` — record a decision (or
   correct an earlier one via `supersedes`).
 - `memory_status()` — mode, branch/commit, index counts.
