@@ -257,3 +257,26 @@ def test_cli_doctor_reports_ready_when_backend_ok(tmp_path, monkeypatch):
     assert "READY" in out
     assert "NOT READY" not in out
     assert "live embedding call (8 dims)" in out
+
+
+def test_agent_protocol_context_created_and_refreshed(tmp_path):
+    run_cli(["--root", str(tmp_path), "agent-init", "--agent", "all"])
+    targets = [tmp_path / "AGENTS.md", tmp_path / ".github" / "copilot-instructions.md"]
+    for target in targets:
+        content = target.read_text(encoding="utf-8")
+        assert 'ctxmem context "<task or question>" --budget 2000' in content
+        assert 'context(query="<task>", budget=2000)' in content
+        target.write_text("Custom preamble\n" + cli.AGENT_MARK_BEGIN +
+                          "\nOld protocol\n" + cli.AGENT_MARK_END +
+                          "\nCustom footer\n", encoding="utf-8")
+    run_cli(["--root", str(tmp_path), "update-instructions"])
+    first = [target.read_text(encoding="utf-8") for target in targets]
+    run_cli(["--root", str(tmp_path), "update-instructions"])
+    for target, expected in zip(targets, first):
+        content = target.read_text(encoding="utf-8")
+        assert content == expected
+        assert "Custom preamble" in content and "Custom footer" in content
+        assert "Old protocol" not in content
+        assert "empty\noutput does not prove" in content
+        assert "ctxmem context" in content
+        assert content.count(cli.AGENT_MARK_BEGIN) == 1

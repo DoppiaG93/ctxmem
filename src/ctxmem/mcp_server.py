@@ -5,6 +5,7 @@ Tools:
   recall(query, limit, type, mode)            -> search project memory + code
   ask(query, limit, type, mode)               -> recall + HIT/WEAK/MISS verdict
   remember(content, type, title, tags, supersedes, path) -> store a decision/note/session
+  context(query, budget, limit, type, mode)   -> budgeted context and metadata
   memory_status()                             -> mode, branch/commit, index counts
 
 Run:  ctxmem-mcp        (set CTXMEM_ROOT to point at the repo; defaults to cwd)
@@ -15,6 +16,7 @@ Requires the optional dependency:  pip install "ctxmem[mcp]"
 import os
 from typing import Optional
 
+from . import context as contextmod
 from . import gitinfo, retrieval, store
 
 try:
@@ -88,6 +90,17 @@ def ask(query: str, limit: int = 8, type: Optional[str] = None,
     for row in rows:
         out.append(_format_row(row))
     return "\n\n".join(out)
+
+
+@mcp.tool()
+def context(query: str, budget: int, limit: int = 50,
+            type: Optional[str] = None, mode: Optional[str] = None) -> dict:
+    """Return budgeted context text with separate token and selection metadata.
+
+    The budget covers the text field only, not MCP transport or metadata.
+    Superseded records are excluded; stale records retain verification warnings.
+    """
+    return contextmod.build(ROOT, query, budget, limit, type, mode)
 
 
 @mcp.tool()

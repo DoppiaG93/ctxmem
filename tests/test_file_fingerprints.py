@@ -82,6 +82,10 @@ def test_mcp_remember_path_and_semantic_result_annotation(tmp_path, monkeypatch)
     (tmp_path / "auth.py").write_text("expiry = 1\n", encoding="utf-8")
     assert "file changed since saved" in server.ask("Token expiry")
     assert "file changed since saved" in server.recall("Token expiry")
+    packed = server.context("Token expiry", budget=1000, type="note")
+    assert "WARNING: STALE" in packed["text"]
+    assert packed["tokens"] <= 1000
+    assert packed["selected"] == 1
     record = list(store.read_jsonl(store.memory_paths(tmp_path)[1]))[0]
     # Semantic results carry IDs but not file_hash.
     conn = retrieval.get_conn(tmp_path)

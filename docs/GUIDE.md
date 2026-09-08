@@ -391,3 +391,48 @@ to establish a new baseline. Nothing is replaced automatically.
 Existing indexes are rebuilt automatically on first use after this schema upgrade.
 Old memories without fingerprints retain missing-file detection only. Memories
 without a path, or saved with an unreadable/missing file, have no content baseline.
+
+### Context within a token budget
+
+```bash
+ctxmem context "how does authentication work" --budget 2000 > context.txt
+ctxmem context "release process" --budget 1000 --type decision
+ctxmem context "login" --budget 4000 --mode hybrid --limit 100
+```
+
+`context` searches for the supplied task or question and packs complete records
+into plain text. It considers up to 50 retrieval candidates by default (`--limit`
+changes this pool). Active decisions come first, followed by other active answer
+memories, code/maps, and finally stale records. Search ranking is preserved within
+each group. Superseded records are excluded and stale warnings are retained.
+
+Headers, memory IDs, source paths, separators, and the final newline all count
+toward `--budget`. Blocks that do not fit are skipped; smaller later results can
+still be included. No record is truncated or summarized. Code blocks contain the
+indexed snippet, which may already be shorter than the full source file.
+
+Only the context text goes to stdout, so it can be redirected or piped directly.
+Selection counts, token usage, counting method, and search mode go to stderr.
+If there are no matches or no complete record fits, stdout is empty and stderr
+explains the outcome. Budget and candidate limit must be positive integers.
+
+When available, `tiktoken` counts using `cl100k_base` (install the existing
+`ctxmem[bench]` extra). If loading the tokenizer fails or it is absent, UTF-8 byte
+counting provides a conservative bound for byte-based tokenizers such as
+`cl100k_base`. This may leave substantial space unused, but avoids the benchmark's
+approximate chars/4 estimate. The reported count is not a promise for arbitrary
+model tokenizers, and excludes any surrounding prompt or transport overhead.
+The first use of tiktoken may need to download its encoding data.
+
+MCP exposes the same feature as `context(query, budget, limit=50, type=None,
+mode=None)`. It returns a dictionary with `text`, `tokens`, `budget`, `method`,
+`selected`, `candidates`, and `mode`. The budget covers only `text`, not metadata
+or the MCP response envelope. Keyword, semantic, hybrid, and keyword fallback
+use the same packing rules.
+
+
+The generated agent protocol includes when to use budgeted context, how to read
+CLI/MCP output, and how to handle omitted or stale records. New projects receive
+it through `ctxmem agent-init`; existing projects should run
+`ctxmem update-instructions` after upgrading. Custom text outside the managed
+instruction block is preserved.
