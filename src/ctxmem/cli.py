@@ -93,6 +93,7 @@ def cmd_remember(args):
         "branch": gitinfo.branch(root),
         "commit": gitinfo.commit(root),
         "path": args.path or "",
+        "file_hash": store.file_hash(root, args.path or ""),
         "title": args.title or "",
         "content": args.content,
         "tags": args.tags.split(",") if args.tags else [],

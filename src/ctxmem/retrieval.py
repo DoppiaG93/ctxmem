@@ -123,7 +123,11 @@ def get_conn(root):
     if not os.path.exists(db_path):
         conn, _, _, _ = rebuild(root)
         return conn
-    return store.connect(db_path)
+    conn = store.connect(db_path)
+    if "file_hash" not in {row["name"] for row in conn.execute("PRAGMA table_info(mem)")}:
+        conn.close()
+        conn, _, _, _ = rebuild(root)
+    return conn
 
 
 def _key(row):
@@ -150,15 +154,29 @@ def _annotate(conn, rows, root):
     - Staleness: a memory record whose `path` points to a file that no longer
       exists on disk is marked `_stale` — the code changed, so the agent should
       verify (and likely supersede) that memory.
+    - Fingerprints: changed or unreadable tracked files require verification.
+      Legacy memories without a fingerprint retain missing-file detection only.
     - Supersede: a record replaced by a newer decision is marked and demoted,
       but still returned so the agent can see *why* it changed.
     """
+    baselines = dict(conn.execute(
+        "SELECT mem_id, file_hash FROM mem WHERE source = 'memory' AND file_hash != ''"
+    ))
+    current_hashes = {}
     for row in rows:
         if row.get("type") == "symbol":
             continue
         path = (row.get("path") or "").strip()
         if path and not os.path.exists(os.path.join(root, path)):
             row["_stale"] = "missing file: {}".format(path)
+        elif path and baselines.get(row.get("mem_id")):
+            if path not in current_hashes:
+                current_hashes[path] = store.file_hash(root, path)
+            current = current_hashes[path]
+            if not current:
+                row["_stale"] = "cannot verify file: {}".format(path)
+            elif current != baselines[row["mem_id"]]:
+                row["_stale"] = "file changed since saved; verify: {}".format(path)
 
     superseded_by, replaces = store.supersede_index(conn)
     if superseded_by:

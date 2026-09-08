@@ -14,6 +14,7 @@ Because the source of truth is a text file inside the repo, the memory is
 automatically branch-aware and merges like any other file.
 """
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -36,6 +37,20 @@ DEFAULT_CONFIG = {
 def memory_paths(root="."):
     base = os.path.join(root, MEMORY_DIR)
     return base, os.path.join(base, JSONL_NAME), os.path.join(base, DB_NAME)
+
+
+def file_hash(root, path):
+    """Hash a readable file; an empty value means no baseline is available."""
+    if not path:
+        return ""
+    try:
+        digest = hashlib.sha256()
+        with open(os.path.join(root, path), "rb") as source:
+            for chunk in iter(lambda: source.read(65536), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError:
+        return ""
 
 
 def config_path(root="."):
@@ -107,7 +122,8 @@ def init_schema(conn):
             tags,
             source UNINDEXED,
             ts UNINDEXED,
-            supersedes UNINDEXED
+            supersedes UNINDEXED,
+            file_hash UNINDEXED
         )
         """
     )
@@ -118,8 +134,8 @@ def insert_row(conn, rec):
     conn.execute(
         "INSERT INTO mem "
         "(mem_id, type, branch, commit_hash, path, title, content, tags, source, ts, "
-        "supersedes) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "supersedes, file_hash) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             rec.get("id", new_id()),
             rec.get("type", "note"),
@@ -132,6 +148,7 @@ def insert_row(conn, rec):
             rec.get("source", "memory"),
             rec.get("ts", ""),
             rec.get("supersedes", ""),
+            rec.get("file_hash", ""),
         ),
     )
 
