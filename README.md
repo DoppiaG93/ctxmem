@@ -10,9 +10,9 @@
 
 [![Test](https://github.com/DoppiaG93/ctxmem/actions/workflows/test.yml/badge.svg)](https://github.com/DoppiaG93/ctxmem/actions/workflows/test.yml)
 [![Lint](https://github.com/DoppiaG93/ctxmem/actions/workflows/lint.yml/badge.svg)](https://github.com/DoppiaG93/ctxmem/actions/workflows/lint.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/DoppiaG93/ctxmem/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
-[![Dependencies](https://img.shields.io/badge/core%20deps-zero-brightgreen.svg)](pyproject.toml)
+[![Dependencies](https://img.shields.io/badge/core%20deps-zero-brightgreen.svg)](https://github.com/DoppiaG93/ctxmem/blob/main/pyproject.toml)
 [![MCP](https://img.shields.io/badge/MCP-ready-8A2BE2.svg)](https://modelcontextprotocol.io)
 
 </div>
@@ -41,7 +41,7 @@ so nothing is forgotten when a chat exceeds the model's context window.
 
 > **How it works, in one line:** a committed, human-readable `memory.jsonl` is the
 > source of truth; a local, gitignored SQLite index makes it (and your code)
-> instantly searchable. For the full design, see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+> instantly searchable. For the full design, see **[docs/ARCHITECTURE.md](https://github.com/DoppiaG93/ctxmem/blob/main/docs/ARCHITECTURE.md)**.
 
 ---
 
@@ -86,7 +86,7 @@ git commit -m "chore: seed project memory"
 
 Your colleague just `git pull`s and runs `ctxmem recall` — the index rebuilds
 itself from `memory.jsonl`. For the full onboarding story (agent wiring, handing
-memory to a teammate), see **[docs/GUIDE.md](docs/GUIDE.md)**.
+memory to a teammate), see **[docs/GUIDE.md](https://github.com/DoppiaG93/ctxmem/blob/main/docs/GUIDE.md)**.
 
 ## Commands
 
@@ -120,7 +120,7 @@ ctxmem agent-init --agent all --mcp  # also drop a .vscode/mcp.json (MCP server)
 This injects a **Project Memory Protocol** that tells the agent to `recall` before
 a task, `remember` decisions, and `sync` after changing code — so the memory grows
 by itself. Full details (CLI vs MCP, requirements, tips) in
-**[docs/GUIDE.md → Use it from an AI agent](docs/GUIDE.md#use-it-from-an-ai-agent)**.
+**[docs/GUIDE.md → Use it from an AI agent](https://github.com/DoppiaG93/ctxmem/blob/main/docs/GUIDE.md#use-it-from-an-ai-agent)**.
 
 ## Semantic search (Ollama)
 
@@ -140,7 +140,7 @@ cd ollama && task enable             # brings the VM up + switches to semantic
 
 If the backend isn't available, ctxmem **automatically falls back to keyword**.
 Setup options, the Lima VM, and `ctxmem doctor` output are documented in
-**[docs/GUIDE.md → Semantic backend](docs/GUIDE.md#semantic-backend-with-ollama)**.
+**[docs/GUIDE.md → Semantic backend](https://github.com/DoppiaG93/ctxmem/blob/main/docs/GUIDE.md#semantic-backend-with-ollama)**.
 
 ## Why it saves tokens
 
@@ -153,13 +153,13 @@ Instead of pasting whole files into the model, you inject only the relevant
 | Premium requests (round-trips) | 49 | 13 | **3.8× fewer** |
 
 Full methodology and reproducible steps:
-**[docs/ARCHITECTURE.md → Benchmark](docs/ARCHITECTURE.md#7-benchmark--how-it-was-tested)**.
+**[docs/ARCHITECTURE.md → Benchmark](https://github.com/DoppiaG93/ctxmem/blob/main/docs/ARCHITECTURE.md#7-benchmark--how-it-was-tested)**.
 
 ## Documentation
 
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the problem, the data model,
+- **[docs/ARCHITECTURE.md](https://github.com/DoppiaG93/ctxmem/blob/main/docs/ARCHITECTURE.md)** — the problem, the data model,
   the retrieval pipeline, project structure, search-mode internals, and the benchmark.
-- **[docs/GUIDE.md](docs/GUIDE.md)** — full walkthrough, team sharing, the git hook,
+- **[docs/GUIDE.md](https://github.com/DoppiaG93/ctxmem/blob/main/docs/GUIDE.md)** — full walkthrough, team sharing, the git hook,
   AI-agent integration (CLI + MCP), and the semantic/Ollama backend.
 
 ## FAQ
@@ -192,11 +192,11 @@ now — but **bug reports and feature requests are always welcome** via
 reach out to [@DoppiaG93](https://github.com/DoppiaG93) to be added as a collaborator.
 
 Invited collaborators follow the **Git Flow** branching model; see the
-**[Contributing guide](CONTRIBUTING.md)** for branch naming, commit conventions,
+**[Contributing guide](https://github.com/DoppiaG93/ctxmem/blob/main/CONTRIBUTING.md)** for branch naming, commit conventions,
 and the release process. Please also review our
-[Code of Conduct](CODE_OF_CONDUCT.md). To report a security issue, follow the
-[Security Policy](SECURITY.md).
+[Code of Conduct](https://github.com/DoppiaG93/ctxmem/blob/main/CODE_OF_CONDUCT.md). To report a security issue, follow the
+[Security Policy](https://github.com/DoppiaG93/ctxmem/blob/main/SECURITY.md).
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Released under the [MIT License](https://github.com/DoppiaG93/ctxmem/blob/main/LICENSE).
