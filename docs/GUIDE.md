@@ -365,3 +365,29 @@ fails, and exiting non-zero if the backend isn't fully ready:
 
 Semantic backend READY. Turn it on with 'ctxmem mode semantic'.
 ```
+
+### Detecting changes to a memory's source file
+
+Associate a memory with a repository-relative file when saving it:
+
+```bash
+ctxmem remember --type decision --title "Token expiry" --path src/auth.py \
+  "Tokens expire after 24 hours."
+```
+
+CLI `remember --path` and MCP `remember(..., path="src/auth.py")` save a SHA-256
+fingerprint of the readable file in the memory record. `recall` and `ask` compare
+it with the current file and show `STALE (file changed since saved; verify: ...)`
+when its bytes differ. Missing files are flagged too; a previously fingerprinted
+file that cannot be read is reported as unverifiable. The check works across
+keyword, semantic, and hybrid retrieval and does not require Ollama.
+
+A change is a request to verify the memory, not proof that its content is wrong.
+Even formatting changes trigger the file-level check. Review the source, then
+save a confirmed or corrected memory with `--supersedes <old-id>` and `--path`
+to establish a new baseline. Nothing is replaced automatically.
+
+`sync` preserves saved fingerprints; it never refreshes them from changed code.
+Existing indexes are rebuilt automatically on first use after this schema upgrade.
+Old memories without fingerprints retain missing-file detection only. Memories
+without a path, or saved with an unreadable/missing file, have no content baseline.
