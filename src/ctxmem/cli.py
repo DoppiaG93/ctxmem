@@ -6,6 +6,7 @@ ctxmem command line.
     ctxmem remember "..."                          store a decision/note/session
     ctxmem recall "query" [--mode ...]             search memory + code
     ctxmem ask "question"                          recall + HIT/WEAK/MISS verdict
+    ctxmem context "query" --budget N              pack context within a token budget
     ctxmem sync                                    rebuild the index
     ctxmem map                                     save a codebase structure map to memory
     ctxmem log                                      recent memories
@@ -24,7 +25,7 @@ import os
 import sys
 
 from . import bench as benchmod
-from . import codemap, embeddings, gitinfo, retrieval, store
+from . import codemap, context, embeddings, gitinfo, retrieval, store
 
 MODES = ["keyword", "semantic", "hybrid"]
 
@@ -323,6 +324,23 @@ listed records), **WEAK** (only related code/superseded notes — verify), or
 **MISS** (nothing — answer fresh, then remember it). Do this even for questions
 you think you can answer from your own context.
 
+When assembling context for implementation or a handoff, use a bounded payload:
+
+```bash
+ctxmem context "<task or question>" --budget 2000
+```
+
+Choose the budget to fit the task and available context; 2000 is an example,
+not a mandatory limit. This complements the initial `ask` verdict. Avoid loading
+both outputs again when the first already provides enough context.
+`context` prioritizes active decisions, excludes superseded records, and retains
+sources and STALE warnings. Oversized blocks are skipped, not truncated; empty
+output does not prove the memory has no answer. Refine the query, increase the
+budget, or use `recall` to inspect omitted context when needed.
+Only stdout is the payload; stderr reports the count and method. The budget
+covers payload text only (cl100k_base tokens when available, otherwise conservative
+UTF-8 bytes), not surrounding prompts or arbitrary model tokenizers.
+
 **2. Reconcile — decide who is right.**
 If what the memory says conflicts with your own context or with the current
 code, do not silently pick one. Verify against the actual code in the repo:
@@ -332,8 +350,9 @@ code, do not silently pick one. Verify against the actual code in the repo:
 - If the **memory** is right and your context was stale, trust the memory.
 
 Records shown with `⚠ SUPERSEDED` are already outdated — use the newer one.
-Records shown with `⚠ STALE` point at code that no longer exists — verify against
-the repo and supersede them if they are wrong.
+Records shown with `⚠ STALE` or `WARNING: STALE` reference files that changed,
+are missing, or cannot be verified. Check the code and supersede the memory if
+it is wrong; a changed file alone does not prove the decision is obsolete.
 
 **3. Remember — persist every decision and correction.**
 When you make or confirm an important decision, save it:
@@ -354,7 +373,10 @@ Each `remember` prints the new record's `id`; use it as the `--supersedes`
 target later. After changing code, run `ctxmem sync` to rebuild the index.
 
 If your agent supports the MCP protocol instead of running shell commands, use
-the MCP tools `recall(...)` and `remember(..., supersedes="<id>")` the same way."""
+the MCP tools `ask(...)`, `recall(...)`, and `remember(..., supersedes="<id>")`
+the same way. For budgeted context use `context(query="<task>", budget=2000)`;
+consume its `text` field as the payload and inspect the separate selection/count
+metadata. The budget excludes the MCP envelope and metadata."""
 
 MCP_JSON = """{
   "servers": {
@@ -726,6 +748,26 @@ def cmd_map(args):
     print("Recall it any time with: ctxmem recall \"codebase map\" --type map")
 
 
+def cmd_context(args):
+    try:
+        result = context.build(args.root, args.query, args.budget, args.limit,
+                               args.type, args.mode)
+    except ValueError as exc:
+        sys.exit(str(exc))
+    sys.stdout.write(result["text"])
+    print("Context: {selected}/{candidates} records, {tokens}/{budget} tokens "
+          "[{method}], mode: {mode}".format(**result), file=sys.stderr)
+    if not result["text"]:
+        print("No complete active record fits, or no matches were found.", file=sys.stderr)
+
+
+def _positive_int(value):
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return number
+
+
 def _add_search_args(parser, func, query_help):
     """Wire up the shared query/limit/type/mode args for recall and ask."""
     parser.add_argument("query", help=query_help)
@@ -756,6 +798,15 @@ def _add_agent_parsers(sub):
     ui.add_argument("--mcp", action="store_true",
                     help="Also overwrite .vscode/mcp.json if it already exists.")
     ui.set_defaults(func=cmd_update_instructions)
+
+
+def _add_context_parser(sub):
+    cx = sub.add_parser("context", help="Pack relevant context within a token budget.")
+    _add_search_args(cx, cmd_context, "Task or question to retrieve context for.")
+    cx.add_argument("--budget", type=_positive_int, required=True,
+                    help="Maximum text tokens (conservative UTF-8 bytes without tiktoken).")
+    cx.set_defaults(limit=50)
+
 
 
 def build_parser():
@@ -790,6 +841,8 @@ def build_parser():
     ak = sub.add_parser(
         "ask", help="Recall + a HIT/WEAK/MISS verdict on whether memory knows.")
     _add_search_args(ak, cmd_ask, "The question to check against memory.")
+
+    _add_context_parser(sub)
 
     s = sub.add_parser("sync", help="Rebuild the index from jsonl + code.")
     s.set_defaults(func=cmd_sync)
