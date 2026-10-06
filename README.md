@@ -96,7 +96,7 @@ memory to a teammate), see **[docs/GUIDE.md](https://github.com/DoppiaG93/ctxmem
 | `ctxmem remember "text" [--type --title --tags --path --supersedes ID]` | Store a memory (→ `memory.jsonl`); prints the new record's `id`. Types: `note`, `decision`, `session`, `todo`. `--supersedes ID` corrects/replaces an earlier memory. |
 | `ctxmem recall "query" [--limit --type --mode]` | Search memory + code. Superseded records are demoted + flagged `⚠ SUPERSEDED`; memories pointing at a missing file are flagged `⚠ STALE`. |
 | `ctxmem ask "question" [--limit --type --mode]` | Recall **plus a ranked verdict**: `HIT` for a relevant active answer memory, `WEAK` for related code/maps/low-overlap memories, or `MISS`. |
-| `ctxmem context "query" --budget N [--limit --type --mode]` | Pack complete relevant records within a text token budget; prioritize active decisions and exclude superseded memories. |
+| `ctxmem context "query" --budget N [--limit --type --mode --explain]` | Pack complete records using relevance, memory authority, freshness, and token cost; optionally explain every selection. |
 | `ctxmem sync` | Rebuild `index.db` from `memory.jsonl` + code (+ embeddings if enabled). |
 | `ctxmem map` | Save a **structure + Python import map** into memory (`--type map`). Great first step so agents know the layout. |
 | `ctxmem mode [M]` | Show, or switch to, `keyword` / `semantic` / `hybrid`. |

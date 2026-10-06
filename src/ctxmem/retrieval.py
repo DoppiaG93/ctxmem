@@ -24,7 +24,7 @@ QUESTION_WORDS = {
 }
 
 
-def _meaningful_tokens(text):
+def meaningful_tokens(text):
     return {
         token for token in re.findall(r"\w+", (text or "").lower())
         if len(token) >= 3 and token not in QUESTION_WORDS
@@ -35,7 +35,7 @@ def _keyword_match_is_strong(row, query):
     """Require a keyword HIT to cover at least half the meaningful question."""
     if "score" not in row or query is None:
         return True
-    query_tokens = _meaningful_tokens(query)
+    query_tokens = meaningful_tokens(query)
     if not query_tokens:
         return False
     record_text = " ".join([
@@ -43,7 +43,7 @@ def _keyword_match_is_strong(row, query):
         row.get("content") or "",
         row.get("tags") or "",
     ])
-    overlap = query_tokens & _meaningful_tokens(record_text)
+    overlap = query_tokens & meaningful_tokens(record_text)
     return bool(overlap) and len(overlap) / len(query_tokens) >= 0.5
 
 

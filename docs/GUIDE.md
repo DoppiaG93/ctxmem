@@ -398,13 +398,37 @@ without a path, or saved with an unreadable/missing file, have no content baseli
 ctxmem context "how does authentication work" --budget 2000 > context.txt
 ctxmem context "release process" --budget 1000 --type decision
 ctxmem context "login" --budget 4000 --mode hybrid --limit 100
+ctxmem context "login" --budget 2000 --explain
 ```
 
 `context` searches for the supplied task or question and packs complete records
 into plain text. It considers up to 50 retrieval candidates by default (`--limit`
-changes this pool). Active decisions come first, followed by other active answer
-memories, code/maps, and finally stale records. Search ranking is preserved within
-each group. Superseded records are excluded and stale warnings are retained.
+changes this pool). Selection balances retrieval rank with four bounded signals:
+decisions and other answer memories receive a modest authority weight, stale
+records are penalized, and blocks larger than one quarter of the budget receive
+a progressive size penalty. In keyword mode, records with no meaningful query
+overlap are excluded and stronger term coverage improves their utility. Semantic
+and hybrid results rely on their retrieval rank instead of this lexical signal.
+Superseded records are excluded and stale warnings are retained.
+
+For a candidate at zero-based retrieval rank `r`, with complete-block token cost
+`c` and total budget `B`, the `relevance-aware-v1` utility is:
+
+```text
+R = 1 / (1 + 0.25r)
+A = 1.5 decision | 1.2 note/session/todo | 1.0 symbol | 0.9 map
+F = 0.5 stale | 1.0 fresh
+L = 0.25 + 0.75 × keyword_coverage   # keyword mode only; zero coverage is excluded
+P = sqrt(max(1, c / (B/4)))
+
+utility = R × A × F × L / P
+```
+
+For semantic and hybrid retrieval, `L = 1`: semantic matches are not required to
+share literal terms. Candidates are considered by descending utility (retrieval
+rank breaks ties), then greedily added as complete blocks when the exact resulting
+payload still fits. This is a deterministic packing heuristic, not a global
+knapsack optimum. The final payload is always counted again against the budget.
 
 Headers, memory IDs, source paths, separators, and the final newline all count
 toward `--budget`. Blocks that do not fit are skipped; smaller later results can
@@ -413,6 +437,8 @@ indexed snippet, which may already be shorter than the full source file.
 
 Only the context text goes to stdout, so it can be redirected or piped directly.
 Selection counts, token usage, counting method, and search mode go to stderr.
+Add `--explain` to print each candidate's retrieval rank, weights, penalties,
+utility, and selection/skip reason to stderr without contaminating the payload.
 If there are no matches or no complete record fits, stdout is empty and stderr
 explains the outcome. Budget and candidate limit must be positive integers.
 
@@ -425,10 +451,11 @@ model tokenizers, and excludes any surrounding prompt or transport overhead.
 The first use of tiktoken may need to download its encoding data.
 
 MCP exposes the same feature as `context(query, budget, limit=50, type=None,
-mode=None)`. It returns a dictionary with `text`, `tokens`, `budget`, `method`,
-`selected`, `candidates`, and `mode`. The budget covers only `text`, not metadata
-or the MCP response envelope. Keyword, semantic, hybrid, and keyword fallback
-use the same packing rules.
+mode=None, explain=False)`. It returns a dictionary with `text`, `tokens`,
+`budget`, `method`, `selected`, `candidates`, `mode`, and `policy`. With
+`explain=True`, `selection` adds per-record signals and reasons. The budget covers
+only `text`, not metadata or the MCP response envelope. Keyword, semantic, hybrid,
+and keyword fallback use the same packing rules.
 
 
 The generated agent protocol includes when to use budgeted context, how to read
