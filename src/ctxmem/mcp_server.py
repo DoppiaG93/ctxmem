@@ -94,13 +94,15 @@ def ask(query: str, limit: int = 8, type: Optional[str] = None,
 
 @mcp.tool()
 def context(query: str, budget: int, limit: int = 50,
-            type: Optional[str] = None, mode: Optional[str] = None) -> dict:
+            type: Optional[str] = None, mode: Optional[str] = None,
+            explain: bool = False) -> dict:
     """Return budgeted context text with separate token and selection metadata.
 
     The budget covers the text field only, not MCP transport or metadata.
     Superseded records are excluded; stale records retain verification warnings.
+    Set explain to include per-record selection reasons and utility metadata.
     """
-    return contextmod.build(ROOT, query, budget, limit, type, mode)
+    return contextmod.build(ROOT, query, budget, limit, type, mode, explain)
 
 
 @mcp.tool()
