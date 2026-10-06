@@ -333,10 +333,11 @@ ctxmem context "<task or question>" --budget 2000
 Choose the budget to fit the task and available context; 2000 is an example,
 not a mandatory limit. This complements the initial `ask` verdict. Avoid loading
 both outputs again when the first already provides enough context.
-`context` prioritizes active decisions, excludes superseded records, and retains
-sources and STALE warnings. Oversized blocks are skipped, not truncated; empty
+`context` balances relevance, memory authority, freshness, and token cost;
+superseded records are excluded and sources plus STALE warnings are retained.
+Oversized blocks are skipped, not truncated; empty
 output does not prove the memory has no answer. Refine the query, increase the
-budget, or use `recall` to inspect omitted context when needed.
+budget, add `--explain`, or use `recall` to inspect omitted context when needed.
 Only stdout is the payload; stderr reports the count and method. The budget
 covers payload text only (cl100k_base tokens when available, otherwise conservative
 UTF-8 bytes), not surrounding prompts or arbitrary model tokenizers.
@@ -751,12 +752,15 @@ def cmd_map(args):
 def cmd_context(args):
     try:
         result = context.build(args.root, args.query, args.budget, args.limit,
-                               args.type, args.mode)
+                               args.type, args.mode, args.explain)
     except ValueError as exc:
         sys.exit(str(exc))
     sys.stdout.write(result["text"])
     print("Context: {selected}/{candidates} records, {tokens}/{budget} tokens "
-          "[{method}], mode: {mode}".format(**result), file=sys.stderr)
+          "[{method}], mode: {mode}, policy: {policy}".format(**result), file=sys.stderr)
+    for item in result.get("selection", []):
+        print("  {status:8} #{rank:<2} [{type}] {label} — {reason} "
+              "(utility {utility:.4f}, {tokens} tokens)".format(**item), file=sys.stderr)
     if not result["text"]:
         print("No complete active record fits, or no matches were found.", file=sys.stderr)
 
@@ -805,6 +809,8 @@ def _add_context_parser(sub):
     _add_search_args(cx, cmd_context, "Task or question to retrieve context for.")
     cx.add_argument("--budget", type=_positive_int, required=True,
                     help="Maximum text tokens (conservative UTF-8 bytes without tiktoken).")
+    cx.add_argument("--explain", action="store_true",
+                    help="Explain selected and skipped records on stderr.")
     cx.set_defaults(limit=50)
 
 
